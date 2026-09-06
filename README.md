@@ -111,11 +111,16 @@ npm test                            # 24 offline tests, no key needed
 GEMINI_API_KEY=... npm run test:live # + one real Gemini call (uses daily quota)
 ```
 
-The offline suite covers input validation, the model-output → card-tuple
+`npm test` runs both suites. The API suite covers input validation, the model-output → card-tuple
 conversion, error mapping and the rate limiter, with `fetch` stubbed. The live
 test renders a page of notes to a real PNG (`test/make-notes-png.js`, a 5×7
 bitmap font and a hand-rolled PNG encoder — no image dependencies) and sends it
 through the real endpoint.
+
+`test/picker.test.js` drives the real file-picker path in headless Chrome —
+putting a file on the input and firing the change event a browser would fire.
+It exists because that path shipped broken while every other test called
+runScan() directly and sailed past it.
 
 ## Layout
 

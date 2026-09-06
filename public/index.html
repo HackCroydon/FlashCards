@@ -1227,7 +1227,15 @@ function saveDraft(){
 
 /* entry points: click, and drag a photo onto the card */
 $("btnScan").onclick = () => $("scanInput").click();
-$("scanInput").onchange = e => { const f = e.target.files; e.target.value = ""; if (f.length) runScan(f); };
+$("scanInput").onchange = e => {
+  /* Copy the files out BEFORE clearing the input. input.files is live, so
+     resetting value first empties the very list we are about to read — which
+     silently dropped every scan. The reset itself is needed so picking the
+     same file twice in a row still fires a change event. */
+  const files = Array.from(e.target.files);
+  e.target.value = "";
+  if (files.length) runScan(files);
+};
 $("btnReviewBack").onclick = () => { draft = null; renderHome(); };
 
 ["dragenter","dragover"].forEach(ev => $("btnScan").addEventListener(ev, e => {
