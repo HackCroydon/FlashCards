@@ -148,6 +148,20 @@ async function offline() {
   check("sustained overload -> 503, not a confusing model error",
     swamped.statusCode === 503 && /busy/i.test(swamped.body.error), JSON.stringify(swamped.body));
 
+  // A model that hangs must not push us past Vercel's 60s function timeout.
+  // Every attempt hangs here; the handler has to give up on its own.
+  globalThis.fetch = (url, opt) =>
+    new Promise((_, reject) => {
+      opt.signal.addEventListener("abort", () => {
+        const e = new Error("aborted"); e.name = "AbortError"; reject(e);
+      });
+    });
+  const t0 = Date.now();
+  const hung = await call({ images: [PNG_1PX] });
+  const took = (Date.now() - t0) / 1000;
+  check(`gives up before Vercel's 60s timeout (took ${took.toFixed(1)}s)`,
+    took < 55 && hung.statusCode === 503, `status ${hung.statusCode}`);
+
   console.log("\nRate limit");
   // 404 rather than 500: a retryable status would make each call take seconds,
   // and the burst would outlast the limiter's own 60s window.

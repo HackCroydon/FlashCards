@@ -136,9 +136,9 @@ function rateLimited(ip) {
   return recent.length > MAX_PER_WINDOW;
 }
 
-async function callGemini(model, key, parts) {
+async function callGemini(model, key, parts, budgetMs = ATTEMPT_TIMEOUT_MS) {
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), ATTEMPT_TIMEOUT_MS);
+  const timer = setTimeout(() => ctl.abort(), budgetMs);
   try {
     return await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -231,8 +231,12 @@ export default async function handler(req, res) {
     // Gemini returns 503 when a model is briefly swamped. That is not a reason
     // to fail someone's scan, so ride it out before moving down the chain.
     for (let attempt = 0; attempt < 3; attempt++) {
+      // Never start an attempt that could run past the deadline: cap it at
+      // whatever budget is left. Below ~4s there is no point starting at all.
+      const left = deadline - Date.now();
+      if (left < 4000) { overloaded = true; break; }
       try {
-        r = await callGemini(model, key, parts);
+        r = await callGemini(model, key, parts, Math.min(ATTEMPT_TIMEOUT_MS, left));
       } catch (e) {
         r = null;
         if (e?.name === "AbortError") {
