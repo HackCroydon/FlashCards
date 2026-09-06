@@ -1388,16 +1388,24 @@ function renderReview(){
     <div class="rhead">
       <h3>${draft.cards.length} card${draft.cards.length===1?"":"s"} from your notes</h3>
       <p class="sub">Gemini can misread handwriting. Skim these before you save — untick anything wrong, tap Edit to fix it.</p>
-      <div class="pair">
-        <div>
-          <label for="rdn">Deck name</label>
-          <input id="rdn" value="${esc(draft.deckName)}" maxlength="60">
-        </div>
-        <div>
-          <label for="rsub">Add to</label>
-          <select id="rsub">${categoryOptions(guessCategory(draft.subject))}</select>
+      <label for="rdest">Where do these go?</label>
+      <select id="rdest">
+        <option value="__new">Create a new deck</option>
+        ${deckOptions()}
+      </select>
+      <div id="rnew">
+        <div class="pair">
+          <div>
+            <label for="rdn">Deck name</label>
+            <input id="rdn" value="${esc(draft.deckName)}" maxlength="60">
+          </div>
+          <div>
+            <label for="rsub">Category</label>
+            <select id="rsub">${categoryOptions(guessCategory(draft.subject))}</select>
+          </div>
         </div>
       </div>
+      <p class="sub hide" id="rappend"></p>
     </div>
     ${draft.truncated ? `<div class="rwarn">These notes were long and Gemini ran out of room, so the last few facts may be missing. Scan the rest as a second deck.</div>` : ""}
     <p class="rcount" id="rcount">${kept} of ${draft.cards.length} selected</p>
@@ -1417,6 +1425,22 @@ function renderReview(){
   });
 
   $("reviewBody").querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editDraftCard(+b.dataset.edit));
+
+  const dest = $("rdest");
+  const syncDest = () => {
+    const isNew = dest.value === "__new";
+    $("rnew").classList.toggle("hide", !isNew);
+    $("rappend").classList.toggle("hide", isNew);
+    if (!isNew) {
+      const d = S.decks.find(x => x.id === dest.value);
+      $("rappend").textContent = d
+        ? `These cards will be added to "${d.name}", which has ${d.cards.length} card${d.cards.length===1?"":"s"} already. Anything already in the deck is skipped.`
+        : "";
+    }
+    $("rSave").textContent = isNew ? "Save deck" : "Add to deck";
+  };
+  dest.onchange = syncDest;
+  syncDest();
 
   $("rCancel").onclick = () => { draft = null; renderHome(); };
   $("rSave").onclick = saveDraft;
@@ -1441,6 +1465,33 @@ function editDraftCard(i){
 function saveDraft(){
   const cards = draft.cards.filter((_,i) => draft.keep[i]);
   if (!cards.length) return toast("Tick at least one card to save");
+
+  const dest = $("rdest").value;
+
+  if (dest !== "__new") {
+    const d = S.decks.find(x => x.id === dest);
+    if (!d) return toast("That deck no longer exists");
+
+    /* Re-scanning a page that overlaps one you already did is the easy way to
+       end up with the same card twice, so match on the question and skip. */
+    const seen = new Set(d.cards.map(c => c[0].trim().toLowerCase()));
+    const fresh = cards.filter(c => !seen.has(c[0].trim().toLowerCase()));
+    const skipped = cards.length - fresh.length;
+
+    if (!fresh.length) {
+      return toast(`Every card was already in "${d.name}"`);
+    }
+    d.cards.push(...fresh.map(withId));
+    delete S.progress[d.id];   // the old known/total no longer describes this deck
+    save();
+    draft = null;
+    renderHome();
+    toast(skipped
+      ? `${fresh.length} added, ${skipped} already there`
+      : `${fresh.length} card${fresh.length===1?"":"s"} added to ${d.name}`);
+    setTimeout(() => openDeck(d.id), 260);
+    return;
+  }
 
   const name = ($("rdn").value.trim() || draft.deckName).slice(0,60);
   const cat = $("rsub").value;
@@ -1477,6 +1528,17 @@ $("btnReviewBack").onclick = () => { draft = null; renderHome(); };
 $("btnScan").addEventListener("drop", e => {
   if (e.dataTransfer?.files?.length) runScan(e.dataTransfer.files);
 });
+
+/** <optgroup> list of every existing deck, for the scan destination picker. */
+function deckOptions(){
+  const groups = S.categories.map(c => [c.name, S.decks.filter(d => d.cat === c.id)]);
+  const orphans = S.decks.filter(d => !catById(d.cat));
+  if (orphans.length) groups.push(["Uncategorised", orphans]);
+  return groups.filter(([,ds]) => ds.length).map(([name, ds]) =>
+    `<optgroup label="${esc(name)}">` +
+    ds.map(d => `<option value="${esc(d.id)}">${esc(d.name)} (${d.cards.length})</option>`).join("") +
+    `</optgroup>`).join("");
+}
 
 /** <option> list for every category the user has. */
 function categoryOptions(selectedId){

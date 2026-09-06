@@ -206,6 +206,12 @@ delete it.
 
 **Deleting cards** works from the study screen or a deck's card list.
 
+**Scanning into an existing deck** — the review screen asks where the cards
+should go. It defaults to creating a new deck; pick an existing one and the
+cards are appended instead. Cards whose question already exists in that deck
+are skipped, because re-scanning an overlapping page is the easy way to end up
+with the same card twice.
+
 **Sharing** produces a share code. The payload is deflated and base64url'd
 because raw JSON for a 23-card deck is about 6,500 characters as base64, which
 is unusable as something you paste into a chat; compressed it is around 2,000.
