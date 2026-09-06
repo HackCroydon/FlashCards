@@ -6,9 +6,10 @@
   "description": "Study Deck — flashcards, with decks generated from photos of your notes",
   "scripts": {
     "dev": "node dev-server.js",
-    "test": "node test/extract.test.js && node test/picker.test.js",
+    "test": "node test/extract.test.js && node test/picker.test.js && node test/decks.test.js",
     "test:api": "node test/extract.test.js",
     "test:ui": "node test/picker.test.js",
+    "test:decks": "node test/decks.test.js",
     "test:live": "node test/extract.test.js --live"
   }
 }

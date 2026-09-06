@@ -467,6 +467,54 @@
     max-height:260px;overflow:auto;
   }
 
+
+  /* category palette — ink colours, one per category */
+  html[data-theme="light"]{
+    --c1:#3A6B4A; --c2:#2B5C9E; --c3:#8A4B7D; --c4:#A8552B;
+    --c5:#2F6E6E; --c6:#7A5CB8; --c7:#8C6A22; --c8:#6B6259;
+  }
+  html[data-theme="dark"]{
+    --c1:#83BE90; --c2:#84AEE6; --c3:#D79FCB; --c4:#E5A277;
+    --c5:#79C7C7; --c6:#B29BEA; --c7:#DCBB63; --c8:#A99C8E;
+  }
+
+  .deckrow{display:flex;align-items:stretch;gap:2px;border-radius:10px;transition:background .22s var(--ease)}
+  .deckrow:hover{background:var(--raise)}
+  .deckrow:hover .deck{background:none}
+  .deckrow .deck{flex:1}
+  .rowbtn{
+    flex:none;width:36px;border:none;background:none;color:var(--muted);cursor:pointer;
+    border-radius:10px;font-size:17px;line-height:1;transition:color .2s,background .2s;
+  }
+  .rowbtn:hover{color:var(--ink);background:var(--edge-soft)}
+
+  .homeacts{display:flex;gap:10px;margin-top:8px}
+  .swatches{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .swatch{
+    width:28px;height:28px;border-radius:8px;border:2px solid transparent;cursor:pointer;
+    transition:transform .18s var(--spring),border-color .18s;
+  }
+  .swatch:hover{transform:scale(1.12)}
+  .swatch.on{border-color:var(--ink);transform:scale(1.1)}
+
+  .stack{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin:4px 0 6px}
+  .linkbtn{
+    background:none;border:none;color:var(--ink-2);font-family:var(--sans);font-size:13.5px;
+    font-weight:500;cursor:pointer;padding:8px 0;text-align:left;
+    border-bottom:1.5px solid transparent;transition:color .2s,border-color .2s;
+  }
+  .linkbtn:hover{color:var(--ink);border-bottom-color:var(--edge)}
+  .linkbtn.danger,.sub.danger,.edit.danger{color:var(--wrong)}
+  .linkbtn.danger:hover{color:var(--wrong);border-bottom-color:var(--wrong)}
+  .edit.danger:hover{color:var(--wrong);background:var(--raise)}
+  button.act.danger{background:var(--wrong);border-color:var(--wrong);color:#FFF8F4}
+  button.act.danger:hover{filter:brightness(1.08);color:#FFF8F4}
+  .modal .sub{color:var(--muted);font-size:12.5px;line-height:1.55;margin:-8px 0 16px}
+  textarea.code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;
+    line-height:1.5;word-break:break-all;resize:vertical;
+  }
+
   @media (max-width:480px){
     .brand h1{font-size:24px}
     .card p{font-size:21px}
@@ -486,7 +534,7 @@
     <div class="masthead">
       <div class="brand">
         <h1>Study Deck</h1>
-        <p>Biology and maths, one card at a time</p>
+        <p>One card at a time</p>
       </div>
       <button class="icon-btn" id="btnTheme" aria-label="Switch theme">◐</button>
     </div>
@@ -509,7 +557,12 @@
     <input type="file" id="scanInput" accept="image/*" multiple class="hide">
 
     <div id="panels"></div>
-    <p class="footnote">Your decks are saved in this browser.</p>
+
+    <div class="homeacts">
+      <button class="act ghost" id="btnNewCat">New category</button>
+      <button class="act ghost" id="btnImport">Import a shared deck</button>
+    </div>
+    <p class="footnote">Your decks are saved in this browser. Export one to share it.</p>
   </section>
 
   <!-- REVIEW SCANNED CARDS -->
@@ -562,6 +615,7 @@
         <button class="act ghost" id="btnPrev">Previous</button>
         <button class="act ghost" id="btnShuffle">Reshuffle</button>
         <button class="act ghost" id="btnAddCard">Add card</button>
+        <button class="act ghost" id="btnDelCard">Delete card</button>
       </div>
     </div>
 
@@ -661,27 +715,101 @@ const BASE_DECKS = [
   }
 ];
 
-/* ---------------- state ---------------- */
-const KEY = "flashcards:v2";
+/* ---------------- state ----------------
+   v3 moved three things out of code and into data:
+     - categories are user-defined, not a hardcoded biology/maths pair
+     - every deck lives in S.decks, including the built-in one, so there is
+       one kind of deck with one set of rules
+     - every card carries a stable id in slot 4, so deleting a card cannot
+       silently repoint someone's starred cards at their neighbours
+   Cards stay tuples ([q, a, group, distractors, id]) so the study, quiz and
+   review code that reads c[0..3] is untouched.
+------------------------------------------------------------------ */
+const KEY = "flashcards:v3";
+const OLD_KEY = "flashcards:v2";
 const $ = id => document.getElementById(id);
-let S = { theme:"dark", progress:{}, starred:{}, extras:{}, custom:[], streak:{last:null,days:0} };
+
+const UNFILED = "unfiled";
+const PALETTE = ["c1","c2","c3","c4","c5","c6","c7","c8"];
+
+let S = {
+  v: 3, theme:"dark",
+  categories: [],
+  decks: [],
+  progress:{}, starred:{}, best:{}, streak:{last:null,days:0}
+};
 let DECKS = [], deck = null, queue = [], pos = 0, missed = [], lastSeen = null, reverse = false;
 let mode = "cards", quizScore = 0, quizMissed = [], curOpts = [], curCorrect = "", answered = false;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 const today = () => new Date().toISOString().slice(0,10);
+const uid = p => p + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4);
+
+/* card helpers — the id lives in slot 4 */
+const cardId = c => c[4];
+const withId = c => c.length > 4 && c[4] ? c : [c[0], c[1], c[2] ?? "concept", c[3], uid("k")].slice(0,5);
+
+function defaultCategories(){
+  return [
+    { id:"biology", name:"Biology", color:"c1" },
+    { id:"math",    name:"Maths",   color:"c2" },
+  ];
+}
+const catById = id => S.categories.find(c => c.id === id);
+const catName = id => (catById(id) || {}).name || "Uncategorised";
 
 async function load(){
-  try{ const r = await window.storage.get(KEY); if(r) S = Object.assign(S, JSON.parse(r.value)); }catch(e){}
+  let raw = null;
+  try { const r = await window.storage.get(KEY); raw = r && JSON.parse(r.value); } catch {}
+  if (raw && raw.v === 3) {
+    S = Object.assign(S, raw);
+  } else {
+    let old = null;
+    try { const r = await window.storage.get(OLD_KEY); old = r && JSON.parse(r.value); } catch {}
+    S = migrate(old);
+    await save();
+  }
+  if (!S.categories.length) S.categories = defaultCategories();
+  S.decks = (S.decks || []).map(d => ({ ...d, cards: (d.cards || []).map(withId) }));
   document.documentElement.dataset.theme = S.theme || "dark";
 }
+
+/**
+ * v2 -> v3. The built-in deck becomes an ordinary editable deck, extras are
+ * folded into their deck, and starred moves from array indices to card ids
+ * using the same order v2 assembled them in — otherwise everyone's starred
+ * cards would silently shift.
+ */
+function migrate(old){
+  const next = {
+    v:3, theme:(old && old.theme) || "dark",
+    categories: defaultCategories(),
+    decks: [], progress:(old && old.progress) || {}, starred:{},
+    best:(old && old.best) || {}, streak:(old && old.streak) || {last:null,days:0}
+  };
+  const source = BASE_DECKS.concat((old && old.custom) || []);
+  for (const d of source) {
+    const extras = ((old && old.extras) || {})[d.id] || [];
+    const cards = d.cards.concat(extras).map(withId);
+    next.decks.push({
+      id: d.id,
+      cat: d.subject === "math" ? "math" : (d.subject || "biology"),
+      name: d.name, note: d.note || "", cards
+    });
+    // indices -> ids, against the very order v2 would have produced
+    const wasStarred = ((old && old.starred) || {})[d.id] || [];
+    const ids = wasStarred.map(i => cards[i] && cardId(cards[i])).filter(Boolean);
+    if (ids.length) next.starred[d.id] = ids;
+  }
+  return next;
+}
+
 async function save(){
   try{ await window.storage.set(KEY, JSON.stringify(S)); }catch(e){}
 }
+
 function assemble(){
-  DECKS = BASE_DECKS.concat(S.custom || []).map(d => ({
-    ...d, cards: d.cards.concat(S.extras[d.id] || [])
-  }));
+  DECKS = S.decks.map(d => ({ ...d, cards: d.cards }));
 }
 function touchStreak(){
   const t = today();
@@ -706,8 +834,6 @@ function renderHome(){
   const days = S.streak.days || 0;
   const bests = Object.values(S.best || {});
 
-  /* One line of tally, the way you'd note it in a margin — not four
-     identical stat tiles. Only mention what there is something to say about. */
   const record = [
     `<span><b>${DECKS.length}</b>${DECKS.length === 1 ? "deck" : "decks"}</span>`,
     `<span><b>${totalCards}</b>cards</span>`,
@@ -720,32 +846,40 @@ function renderHome(){
   $("stats").className = "record";
   $("stats").innerHTML = record.join("");
 
-  const subjects = [["biology","Biology","var(--bio)"],["math","Maths","var(--math)"]];
-  $("panels").innerHTML = subjects.map(([key,label,color]) => {
-    const list = DECKS.filter(x => x.subject === key);
+  /* A section per category, plus one for decks whose category was deleted. */
+  const sections = S.categories.map(c => [c.id, c.name, c.color]);
+  const orphans = DECKS.filter(d => !catById(d.cat));
+  if (orphans.length) sections.push([UNFILED, "Uncategorised", "c8"]);
+
+  $("panels").innerHTML = sections.map(([id,label,color]) => {
+    const list = id === UNFILED ? orphans : DECKS.filter(x => x.cat === id);
     const cards = list.map(x => {
       const p = S.progress[x.id];
       const pct = p ? Math.round(p.known / p.total * 100) : 0;
       const stars = (S.starred[x.id] || []).length;
-      return `<button class="deck" data-deck="${x.id}">
-          <span class="title">${esc(x.name)}</span>
-          <span class="meta">
-            <span>${x.cards.length} cards</span>
-            <span class="prog" style="--p:${pct}%"><i></i></span>
-            <span class="pct">${p ? pct + "%" : "new"}</span>
-            ${stars ? `<span class="starred">${stars} starred</span>` : ""}
-          </span>
-        </button>`;
+      return `<div class="deckrow">
+          <button class="deck" data-deck="${x.id}">
+            <span class="title">${esc(x.name)}</span>
+            <span class="meta">
+              <span>${x.cards.length} card${x.cards.length===1?"":"s"}</span>
+              <span class="prog" style="--p:${pct}%"><i></i></span>
+              <span class="pct">${p ? pct + "%" : "new"}</span>
+              ${stars ? `<span class="starred">${stars} starred</span>` : ""}
+            </span>
+          </button>
+          <button class="rowbtn" data-manage="${x.id}" title="Deck settings" aria-label="Settings for ${esc(x.name)}">&#8943;</button>
+        </div>`;
     }).join("");
-    const empty = key === "biology"
-      ? "No biology decks yet. Scan a page of notes to make one."
-      : "No maths decks yet. Scan a page of notes to make one.";
-    return `<section class="panel" style="--accent:${color}">
+    const empty = id === UNFILED
+      ? "These decks' category was deleted. Open a deck's settings to re-file it."
+      : `Nothing in ${esc(label)} yet. Scan a page of notes, or start a deck by hand.`;
+    return `<section class="panel" style="--accent:var(--${color})">
         <div class="panel-head">
-          <h2>${label}</h2>
+          <h2>${esc(label)}</h2>
           <span class="n">${list.length ? list.length + (list.length===1?" deck":" decks") : "no decks"}</span>
           <span class="keep"></span>
-          <button class="add" data-new="${key}">New deck</button>
+          ${id === UNFILED ? "" : `<button class="add" data-editcat="${id}">Edit</button>`}
+          <button class="add" data-new="${id}">New deck</button>
         </div>
         <div class="grid">${cards || `<div class="empty">${empty}</div>`}</div>
       </section>`;
@@ -753,6 +887,11 @@ function renderHome(){
 
   document.querySelectorAll("[data-deck]").forEach(b => b.onclick = () => openDeck(b.dataset.deck));
   document.querySelectorAll("[data-new]").forEach(b => b.onclick = () => newDeckModal(b.dataset.new));
+  document.querySelectorAll("[data-manage]").forEach(b => b.onclick = () => deckSettings(b.dataset.manage));
+  document.querySelectorAll("[data-editcat]").forEach(b => b.onclick = () => categoryModal(b.dataset.editcat));
+
+  $("btnNewCat").onclick = () => categoryModal(null);
+  $("btnImport").onclick = importModal;
 }
 
 /* ---------------- study ---------------- */
@@ -804,7 +943,7 @@ function showCard(){
   $("count").textContent = `Card ${pos+1} of ${queue.length}`;
   $("tag").textContent = missed.length ? `${missed.length} to review` : "shuffled";
   $("fill").style.width = (pos/queue.length*100)+"%";
-  const starred = (S.starred[deck.id]||[]).includes(i);
+  const starred = (S.starred[deck.id]||[]).includes(cardId(c));
   $("btnStar").className = "star" + (starred ? " on" : "");
   $("btnStar").textContent = starred ? "★ Starred" : "☆ Star";
 }
@@ -950,10 +1089,10 @@ async function finish(){
 }
 
 function toggleStar(){
-  const i = queue[pos];
+  const id = cardId(deck.cards[queue[pos]]);
   const arr = S.starred[deck.id] = S.starred[deck.id] || [];
-  const at = arr.indexOf(i);
-  if (at >= 0) arr.splice(at,1); else arr.push(i);
+  const at = arr.indexOf(id);
+  if (at >= 0) arr.splice(at,1); else arr.push(id);
   save(); showCard();
 }
 
@@ -969,13 +1108,14 @@ function modal(html, onOk){
   setTimeout(() => host.querySelector("input,textarea")?.focus(), 60);
 }
 
-function newDeckModal(subject){
-  modal(`<h3>New ${subject} deck</h3>
-    <label for="dn">Deck name</label><input id="dn" placeholder="e.g. Unit 2 — Quadratics">`,
+function newDeckModal(catId){
+  modal(`<h3>New deck</h3>
+    <label for="dn">Deck name</label><input id="dn" placeholder="e.g. Unit 2 — Quadratics">
+    <label for="dnc">Category</label><select id="dnc">${categoryOptions(catId)}</select>`,
     () => {
       const name = $("dn").value.trim();
       if (!name) return false;
-      S.custom.push({ id:"c"+Date.now(), subject, name, note:"your deck", cards:[] });
+      S.decks.push({ id: uid("d"), cat: $("dnc").value || catId, name, note:"", cards:[] });
       save(); renderHome(); toast("Deck created");
     });
 }
@@ -987,7 +1127,7 @@ function addCardModal(){
     () => {
       const q = $("cq").value.trim(), a = $("ca").value.trim();
       if (!q || !a) return false;
-      (S.extras[deck.id] = S.extras[deck.id] || []).push([q,a]);
+      S.decks.find(d => d.id === deck.id).cards.push(withId([q,a,"concept",null]));
       save(); assemble();
       deck = DECKS.find(d => d.id === deck.id);
       queue.push(deck.cards.length-1);
@@ -1017,6 +1157,21 @@ document.querySelectorAll("#seg button").forEach(b =>
   b.onclick = () => { if (b.dataset.mode !== mode) openDeck(deck.id, null, b.dataset.mode); });
 $("btnStar").onclick = toggleStar;
 $("btnAddCard").onclick = addCardModal;
+$("btnDelCard").onclick = () => {
+  const c = deck.cards[queue[pos]];
+  if (!c) return;
+  confirmModal("Delete this card?", c[0], "Delete", () => {
+    const id = cardId(c);
+    const d = S.decks.find(x => x.id === deck.id);
+    d.cards = d.cards.filter(x => cardId(x) !== id);
+    if (S.starred[deck.id]) S.starred[deck.id] = S.starred[deck.id].filter(x => x !== id);
+    delete S.progress[deck.id];
+    save();
+    if (!d.cards.length) { renderHome(); return toast("Card deleted, deck is now empty"); }
+    openDeck(deck.id, null, mode);
+    toast("Card deleted");
+  });
+};
 $("btnFlipMode").onclick = () => { reverse = !reverse; renderRun(); toast(reverse ? "Answer shown first" : "Question shown first"); };
 $("btnTheme").onclick = () => {
   S.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
@@ -1239,11 +1394,8 @@ function renderReview(){
           <input id="rdn" value="${esc(draft.deckName)}" maxlength="60">
         </div>
         <div>
-          <label for="rsub">Subject</label>
-          <select id="rsub">
-            <option value="biology"${draft.subject==="biology"?" selected":""}>Biology</option>
-            <option value="math"${draft.subject==="math"?" selected":""}>Math</option>
-          </select>
+          <label for="rsub">Add to</label>
+          <select id="rsub">${categoryOptions(guessCategory(draft.subject))}</select>
         </div>
       </div>
     </div>
@@ -1291,10 +1443,11 @@ function saveDraft(){
   if (!cards.length) return toast("Tick at least one card to save");
 
   const name = ($("rdn").value.trim() || draft.deckName).slice(0,60);
-  const subject = $("rsub").value === "math" ? "math" : "biology";
-  const id = "c" + Date.now();
+  const cat = $("rsub").value;
+  const id = uid("d");
+  S.lastCat = cat;
 
-  S.custom.push({ id, subject, name, note:"from your notes", cards });
+  S.decks.push({ id, cat, name, note:"from your notes", cards: cards.map(withId) });
   save();
   draft = null;
   renderHome();
@@ -1324,6 +1477,320 @@ $("btnReviewBack").onclick = () => { draft = null; renderHome(); };
 $("btnScan").addEventListener("drop", e => {
   if (e.dataTransfer?.files?.length) runScan(e.dataTransfer.files);
 });
+
+/** <option> list for every category the user has. */
+function categoryOptions(selectedId){
+  return S.categories.map(c =>
+    `<option value="${c.id}"${c.id === selectedId ? " selected" : ""}>${esc(c.name)}</option>`).join("");
+}
+
+/**
+ * Gemini reports "biology" or "math". Match that to one of the user's own
+ * categories by id or name; otherwise fall back to whatever they filed a scan
+ * under last, then the first category. Never invents a category.
+ */
+function guessCategory(guess){
+  const byId = catById(guess);
+  if (byId) return byId.id;
+  const want = guess === "math" ? "maths" : String(guess || "").toLowerCase();
+  const byName = S.categories.find(c => {
+    const n = c.name.toLowerCase();
+    return n === want || (want === "maths" && (n === "math" || n === "mathematics"));
+  });
+  if (byName) return byName.id;
+  if (catById(S.lastCat)) return S.lastCat;
+  return (S.categories[0] || {}).id;
+}
+
+/* ------------------------------------------------------------------
+   CATEGORIES, DECK SETTINGS, CARD DELETION, SHARE CODES
+------------------------------------------------------------------ */
+
+/** Category editor. Pass null to create one. */
+function categoryModal(id){
+  const cat = id ? catById(id) : null;
+  const swatches = PALETTE.map(c =>
+    `<button type="button" class="swatch${(cat ? cat.color : "c3") === c ? " on" : ""}"
+       data-color="${c}" style="background:var(--${c})" aria-label="Colour ${c}"></button>`).join("");
+
+  const inUse = cat ? DECKS.filter(d => d.cat === cat.id).length : 0;
+  modal(`<h3>${cat ? "Edit category" : "New category"}</h3>
+    <label for="cn">Name</label>
+    <input id="cn" maxlength="30" placeholder="e.g. Chemistry" value="${cat ? esc(cat.name) : ""}">
+    <label>Colour</label>
+    <div class="swatches" id="sw">${swatches}</div>
+    ${cat ? `<button class="linkbtn danger" id="delCat">Delete this category${
+      inUse ? ` (${inUse} deck${inUse===1?"":"s"} will move to Uncategorised)` : ""}</button>` : ""}`,
+    () => {
+      const name = $("cn").value.trim();
+      if (!name) return false;
+      const color = $("sw").querySelector(".swatch.on")?.dataset.color || "c3";
+      if (cat) { cat.name = name; cat.color = color; }
+      else S.categories.push({ id: uid("cat"), name, color });
+      save(); renderHome(); toast(cat ? "Category updated" : "Category added");
+    });
+
+  $("sw").querySelectorAll(".swatch").forEach(b => b.onclick = () => {
+    $("sw").querySelectorAll(".swatch").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+  });
+
+  if (cat) $("delCat").onclick = () => {
+    /* Decks are never destroyed with their category — they fall through to
+       Uncategorised, where they can be re-filed. */
+    S.categories = S.categories.filter(c => c.id !== cat.id);
+    save(); $("modalHost").innerHTML = ""; renderHome();
+    toast(inUse ? `Category deleted, ${inUse} deck${inUse===1?"":"s"} moved to Uncategorised` : "Category deleted");
+  };
+}
+
+/** Per-deck settings: rename, re-file, export, delete cards, delete deck. */
+function deckSettings(deckId){
+  const d = S.decks.find(x => x.id === deckId);
+  if (!d) return;
+  const opts = S.categories.map(c =>
+    `<option value="${c.id}"${c.id === d.cat ? " selected" : ""}>${esc(c.name)}</option>`).join("");
+
+  modal(`<h3>${esc(d.name)}</h3>
+    <label for="dn2">Deck name</label>
+    <input id="dn2" maxlength="60" value="${esc(d.name)}">
+    <label for="dc2">Category</label>
+    <select id="dc2">${opts}<option value="${UNFILED}"${catById(d.cat)?"":" selected"}>Uncategorised</option></select>
+    <div class="stack">
+      <button class="linkbtn" id="dCards">Manage ${d.cards.length} card${d.cards.length===1?"":"s"}</button>
+      <button class="linkbtn" id="dExport">Export to share</button>
+      <button class="linkbtn danger" id="dDelete">Delete this deck</button>
+    </div>`,
+    () => {
+      const name = $("dn2").value.trim();
+      if (!name) return false;
+      d.name = name; d.cat = $("dc2").value;
+      save(); renderHome(); toast("Deck updated");
+    });
+
+  $("dCards").onclick = () => { $("modalHost").innerHTML = ""; cardManager(deckId); };
+  $("dExport").onclick = () => { $("modalHost").innerHTML = ""; exportModal(deckId); };
+  $("dDelete").onclick = () => {
+    confirmModal(
+      `Delete "${d.name}"?`,
+      `${d.cards.length} card${d.cards.length===1?"":"s"} will be gone for good. This cannot be undone.`,
+      "Delete deck",
+      () => {
+        S.decks = S.decks.filter(x => x.id !== deckId);
+        delete S.progress[deckId]; delete S.starred[deckId]; delete (S.best||{})[deckId];
+        save(); renderHome(); toast("Deck deleted");
+      });
+  };
+}
+
+/** A list of every card in a deck, each removable. */
+function cardManager(deckId){
+  const render = () => {
+    const d = S.decks.find(x => x.id === deckId);
+    if (!d) return renderHome();
+    showScreen("review");
+    $("reviewBody").innerHTML = `
+      <div class="rhead">
+        <h3>${esc(d.name)}</h3>
+        <p class="sub">${d.cards.length} card${d.cards.length===1?"":"s"}. Removing a card also clears its star and cannot be undone.</p>
+      </div>
+      ${d.cards.map(c => `<div class="rcard">
+          <div class="top">
+            <div class="body">
+              <p class="q">${esc(c[0])}</p>
+              <p class="a">${esc(c[1])}</p>
+            </div>
+            <button class="edit danger" data-del="${esc(cardId(c))}">Remove</button>
+          </div>
+        </div>`).join("") || `<div class="empty">This deck has no cards. Add one while studying, or scan a page of notes.</div>`}
+      <div class="rfoot"><div class="row">
+        <button class="act primary" id="cmDone">Done</button>
+      </div></div>`;
+
+    $("reviewBody").querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+      const id = b.dataset.del;
+      const card = d.cards.find(c => cardId(c) === id);
+      confirmModal("Remove this card?", card ? card[0] : "", "Remove", () => {
+        d.cards = d.cards.filter(c => cardId(c) !== id);
+        if (S.starred[deckId]) S.starred[deckId] = S.starred[deckId].filter(x => x !== id);
+        delete S.progress[deckId];   // the old known/total no longer describes this deck
+        save(); render(); toast("Card removed");
+      });
+    });
+    $("cmDone").onclick = () => renderHome();
+  };
+  render();
+}
+
+/** Yes/no for anything destructive. */
+function confirmModal(title, body, okLabel, onOk){
+  const host = $("modalHost");
+  host.innerHTML = `<div class="scrim"><div class="modal">
+      <h3>${esc(title)}</h3>
+      ${body ? `<p class="sub">${esc(body)}</p>` : ""}
+      <div class="row">
+        <button class="act" id="cNo">Cancel</button>
+        <button class="act danger" id="cYes">${esc(okLabel)}</button>
+      </div></div></div>`;
+  $("cNo").onclick = () => host.innerHTML = "";
+  $("cYes").onclick = () => { host.innerHTML = ""; onOk(); };
+  host.querySelector(".scrim").onclick = e => { if (e.target.classList.contains("scrim")) host.innerHTML = ""; };
+}
+
+/* ---------------- share codes ----------------
+   Raw JSON for a 23-card deck is ~8 KB, which is unusable as something you
+   paste into a chat, so the payload is deflated and base64url'd. Typical deck
+   lands in the hundreds of characters. */
+const CODE_PREFIX = "STUDYDECK1.";
+
+const b64urlEncode = bytes => btoa(String.fromCharCode(...bytes))
+  .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const b64urlDecode = s => {
+  const t = s.replace(/-/g,"+").replace(/_/g,"/");
+  return Uint8Array.from(atob(t + "=".repeat((4 - t.length % 4) % 4)), c => c.charCodeAt(0));
+};
+
+async function deflate(str){
+  const cs = new CompressionStream("deflate-raw");
+  const buf = await new Response(new Blob([str]).stream().pipeThrough(cs)).arrayBuffer();
+  return new Uint8Array(buf);
+}
+async function inflate(bytes){
+  const ds = new DecompressionStream("deflate-raw");
+  return await new Response(new Blob([bytes]).stream().pipeThrough(ds)).text();
+}
+
+async function makeCode(deckId){
+  const d = S.decks.find(x => x.id === deckId);
+  const cat = catById(d.cat);
+  const payload = {
+    n: d.name,
+    c: cat ? { n: cat.name, k: cat.color } : null,
+    k: d.cards.map(c => [c[0], c[1], c[2] || "concept", Array.isArray(c[3]) ? c[3] : null]),
+  };
+  return CODE_PREFIX + b64urlEncode(await deflate(JSON.stringify(payload)));
+}
+
+function exportModal(deckId){
+  const d = S.decks.find(x => x.id === deckId);
+  modal(`<h3>Share "${esc(d.name)}"</h3>
+    <p class="sub">Send this code to anyone. They paste it into Import a shared deck.</p>
+    <textarea id="exCode" readonly rows="5" class="code">Preparing…</textarea>
+    <p class="sub" id="exLen"></p>`, () => {});
+  $("modalHost").querySelector("#mOk").textContent = "Copy code";
+  makeCode(deckId).then(code => {
+    $("exCode").value = code;
+    /* A long code is the real failure mode here: some chat apps silently
+       truncate, and a cut code fails to import with no obvious cause. */
+    $("exLen").textContent = code.length > 1800
+      ? `${code.length.toLocaleString()} characters, ${d.cards.length} cards. That's long — send it somewhere that won't cut it short, like a note or email rather than SMS.`
+      : `${code.length.toLocaleString()} characters, ${d.cards.length} cards.`;
+    $("exLen").classList.toggle("danger", code.length > 1800);
+    $("mOk").onclick = async () => {
+      try { await navigator.clipboard.writeText(code); toast("Code copied"); }
+      catch { $("exCode").select(); toast("Press Ctrl+C to copy"); }
+      $("modalHost").innerHTML = "";
+    };
+  }).catch(() => { $("exCode").value = "Could not build a code for this deck."; });
+}
+
+/**
+ * Everything here arrives from someone else, so nothing is trusted: types are
+ * checked, lengths capped, counts capped, and every field coerced to a string
+ * before it ever reaches the DOM (where esc() escapes it again).
+ */
+function sanitiseImport(raw){
+  if (!raw || typeof raw !== "object") throw new Error("That code doesn't contain a deck.");
+  const str = (v, max) => typeof v === "string" ? v.replace(/\s+/g," ").trim().slice(0, max) : "";
+  const name = str(raw.n, 60) || "Shared deck";
+  if (!Array.isArray(raw.k)) throw new Error("That code doesn't contain any cards.");
+  if (raw.k.length > 500) throw new Error("That deck has more than 500 cards, which is too many to import.");
+
+  const cards = raw.k.map(c => {
+    if (!Array.isArray(c)) return null;
+    const q = str(c[0], 400), a = str(c[1], 400);
+    if (!q || !a) return null;
+    const group = str(c[2], 24).toLowerCase() || "concept";
+    const ds = Array.isArray(c[3])
+      ? c[3].map(x => str(x, 400)).filter(Boolean).slice(0, 4)
+      : [];
+    return withId([q, a, group, ds.length ? ds : null]);
+  }).filter(Boolean);
+
+  if (!cards.length) throw new Error("No usable cards were found in that code.");
+  const cat = raw.c && typeof raw.c === "object"
+    ? { name: str(raw.c.n, 30) || "Imported", color: PALETTE.includes(raw.c.k) ? raw.c.k : "c3" }
+    : null;
+  return { name, cards, cat };
+}
+
+async function decodeShare(text){
+  const code = String(text || "").trim().replace(/\s+/g,"");
+  if (!code) throw new Error("Paste a code first.");
+  if (!code.startsWith(CODE_PREFIX)) throw new Error("That doesn't look like a Study Deck code — it should start with STUDYDECK1.");
+  let json;
+  try { json = await inflate(b64urlDecode(code.slice(CODE_PREFIX.length))); }
+  catch { throw new Error("That code is damaged or incomplete. Ask for it again — chat apps sometimes cut long codes short."); }
+  let parsed;
+  try { parsed = JSON.parse(json); } catch { throw new Error("That code is damaged or incomplete."); }
+  return sanitiseImport(parsed);
+}
+
+function importModal(){
+  modal(`<h3>Import a shared deck</h3>
+    <p class="sub">Paste a code someone sent you. Nothing is added until you've seen what's in it.</p>
+    <textarea id="imCode" rows="5" class="code" placeholder="STUDYDECK1.…"></textarea>
+    <p class="sub danger" id="imErr"></p>`,
+    () => {
+      const btn = $("mOk"); btn.disabled = true; btn.textContent = "Checking…";
+      decodeShare($("imCode").value)
+        .then(d => { $("modalHost").innerHTML = ""; importPreview(d); })
+        .catch(e => { $("imErr").textContent = e.message; btn.disabled = false; btn.textContent = "Import"; });
+      return false;   // stay open; we close on success
+    });
+  $("mOk").textContent = "Import";
+}
+
+/** Show what arrived before committing any of it. */
+function importPreview(d){
+  showScreen("review");
+  const existing = S.categories.find(c => d.cat && c.name.toLowerCase() === d.cat.name.toLowerCase());
+  const opts = S.categories.map(c =>
+    `<option value="${c.id}"${existing && existing.id === c.id ? " selected" : ""}>${esc(c.name)}</option>`).join("");
+
+  $("reviewBody").innerHTML = `
+    <div class="rhead">
+      <h3>${esc(d.name)}</h3>
+      <p class="sub">${d.cards.length} card${d.cards.length===1?"":"s"} from a shared code. Check it looks right before adding it.</p>
+      <label for="imName">Deck name</label>
+      <input id="imName" maxlength="60" value="${esc(d.name)}">
+      <label for="imCat">Add to</label>
+      <select id="imCat">
+        ${opts}
+        ${d.cat && !existing ? `<option value="__new" selected>Create "${esc(d.cat.name)}"</option>` : ""}
+      </select>
+    </div>
+    ${d.cards.slice(0,40).map(c => `<div class="rcard"><div class="top"><div class="body">
+        <p class="q">${esc(c[0])}</p><p class="a">${esc(c[1])}</p></div></div></div>`).join("")}
+    ${d.cards.length > 40 ? `<p class="rcount">…and ${d.cards.length - 40} more.</p>` : ""}
+    <div class="rfoot"><div class="row">
+      <button class="act" id="imCancel">Cancel</button>
+      <button class="act primary" id="imAdd">Add deck</button>
+    </div></div>`;
+
+  $("imCancel").onclick = () => renderHome();
+  $("imAdd").onclick = () => {
+    let cat = $("imCat").value;
+    if (cat === "__new") {
+      const nc = { id: uid("cat"), name: d.cat.name, color: d.cat.color };
+      S.categories.push(nc); cat = nc.id;
+    }
+    const id = uid("d");
+    S.decks.push({ id, cat, name: $("imName").value.trim() || d.name, note:"shared with you", cards: d.cards });
+    save(); renderHome(); toast(`${d.cards.length} card${d.cards.length===1?"":"s"} imported`);
+    setTimeout(() => openDeck(id), 260);
+  };
+}
 
 /* swipe */
 let sx = 0, sy = 0;

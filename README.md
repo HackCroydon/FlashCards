@@ -192,3 +192,37 @@ In the app itself, any scan failure now has a **Show technical details** button
 listing the page URL, the endpoint it called, file sizes, the downscaled upload
 size, the HTTP status, timing and the server's own error message — with **Copy
 details** next to it. The same trace goes to the browser console under `[scan]`.
+
+## Decks, categories and sharing
+
+**Categories** are yours to define. Biology and Maths are seeded so existing
+decks keep working, but you can add, rename, recolour and delete any of them.
+Deleting a category never destroys decks — they fall through to an
+"Uncategorised" section where they can be re-filed.
+
+**Every deck is editable**, including the built-in one. The `⋯` next to a deck
+opens its settings: rename, move to another category, manage cards, export, or
+delete it.
+
+**Deleting cards** works from the study screen or a deck's card list.
+
+**Sharing** produces a share code. The payload is deflated and base64url'd
+because raw JSON for a 23-card deck is about 6,500 characters as base64, which
+is unusable as something you paste into a chat; compressed it is around 2,000.
+Codes start with `STUDYDECK1.` and carry the deck's category, so a deck arrives
+with "Chemistry" intact rather than landing uncategorised. Very long codes are
+flagged in the export dialog, because the common failure is a chat app
+silently truncating one.
+
+Imported decks are untrusted input: every field is type-checked, coerced to a
+string and length-capped at the boundary, card counts are capped, and all text
+is escaped at render. `test/decks.test.js` imports a deliberately hostile deck
+and asserts no markup is injected and no script runs.
+
+### Card identity
+
+Cards carry a stable id in slot 4 of their tuple (`[q, a, group, distractors,
+id]`), and `starred` references those ids. This matters: `starred` used to hold
+array indices, so deleting a card silently repointed every star above it at its
+neighbour. State from before this change is migrated on first load, remapping
+starred indices to ids against the order the old code assembled them in.
