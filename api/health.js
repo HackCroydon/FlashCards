@@ -8,11 +8,16 @@
  *   - is the key valid?
  *   - which models can it reach, and is there quota left today?
  *
- * Never returns the key itself — only whether one is present and its shape.
+ * This endpoint is PUBLIC and unauthenticated, so it must stay safe to show a
+ * stranger. It reports only whether a key is present — never any part of it,
+ * not even a masked prefix, and not its length. Upstream errors are reduced to
+ * a category here and logged in full server-side, because Google's error
+ * bodies carry project identifiers and quota metric paths.
  *
  * GET /api/health?probe=1 additionally spends ONE request against the first
- * reachable model to prove end-to-end generation works. That costs quota
- * (free tier is ~20/day/model), so it is opt-in.
+ * reachable model to prove end-to-end generation works. That costs real quota
+ * (free tier is ~20/day/model), so it is opt-in and rate limited — otherwise
+ * anyone could drain the day's allowance by refreshing a URL.
  */
 
 const MODELS = [
@@ -34,6 +39,36 @@ async function timed(fn) {
   }
 }
 
+/**
+ * Upstream error bodies carry project identifiers and quota metric paths, and
+ * this endpoint is public, so callers get a category and the owner gets the
+ * detail in the server logs.
+ */
+function classify(status) {
+  if (status === 400 || status === 403) return "rejected (key invalid or restricted)";
+  if (status === 404) return "model not found for this key";
+  if (status === 429) return "quota or rate limit reached";
+  if (status >= 500) return "upstream unavailable";
+  return `upstream returned ${status}`;
+}
+
+/**
+ * The probe spends real quota (free tier is ~20/day/model), so an open one
+ * lets a stranger drain the day's allowance by refreshing a URL. Best effort
+ * only — serverless instances are ephemeral — but it stops casual abuse.
+ */
+const probes = new Map();
+const PROBE_COOLDOWN_MS = 60_000;
+
+function probeAllowed(ip) {
+  const now = Date.now();
+  for (const [k, t] of probes) if (now - t > PROBE_COOLDOWN_MS) probes.delete(k);
+  const last = probes.get(ip);
+  if (last && now - last < PROBE_COOLDOWN_MS) return false;
+  probes.set(ip, now);
+  return true;
+}
+
 function withTimeout(ms) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), ms);
@@ -48,9 +83,12 @@ export default async function handler(req, res) {
   const out = {
     function: "running",
     time: new Date().toISOString(),
-    node: process.version,
+    // Deliberately no runtime/version details: this endpoint is public.
+    /* Presence only. Never any part of the key, and not its exact length:
+       this endpoint is unauthenticated, so anything here is public. The
+       coarse flag still catches the common paste mistakes. */
     key: key
-      ? { present: true, length: key.length, starts: key.slice(0, 5) + "…", ends: "…" + key.slice(-4) }
+      ? { present: true, looksTruncated: key.length < 20, hasWhitespace: /\s/.test(key) }
       : { present: false },
     hint: null,
     models: [],
@@ -83,7 +121,10 @@ export default async function handler(req, res) {
         signal: t.signal,
       });
       const body = await r.text();
-      if (!r.ok) return { ok: false, status: r.status, error: body.slice(0, 300) };
+      if (!r.ok) {
+        console.error("listModels failed:", r.status, body.slice(0, 500));
+        return { ok: false, status: r.status, error: classify(r.status) };
+      }
       const names = (JSON.parse(body).models || []).map((m) => m.name.replace("models/", ""));
       return { ok: true, status: r.status, count: names.length, names };
     } finally {
@@ -112,7 +153,20 @@ export default async function handler(req, res) {
     return res.status(200).json(out);
   }
 
-  if (req.query?.probe === "1" || /[?&]probe=1/.test(req.url || "")) {
+  const wantsProbe = req.query?.probe === "1" || /[?&]probe=1/.test(req.url || "");
+  const ip =
+    (req.headers?.["x-forwarded-for"] || "").split(",")[0].trim() ||
+    req.socket?.remoteAddress ||
+    "unknown";
+
+  if (wantsProbe && !probeAllowed(ip)) {
+    out.hint =
+      "Probe skipped: it spends real quota, so it is limited to once a minute. " +
+      "The checks above already confirm the key is valid and the models are reachable.";
+    return res.status(200).json(out);
+  }
+
+  if (wantsProbe) {
     for (const entry of out.models) {
       if (!entry.listed) continue;
       const probe = await timed(async () => {
@@ -128,7 +182,8 @@ export default async function handler(req, res) {
             }
           );
           const body = await r.text();
-          return { ok: r.ok, status: r.status, error: r.ok ? null : body.slice(0, 220) };
+          if (!r.ok) console.error("probe failed:", entry.model, r.status, body.slice(0, 500));
+          return { ok: r.ok, status: r.status, error: r.ok ? null : classify(r.status) };
         } finally {
           t.done();
         }
@@ -148,7 +203,7 @@ export default async function handler(req, res) {
       ? "Daily free quota is used up (free tier is about 20 requests per day per model). It resets tomorrow, or enable billing on the Google Cloud project."
       : busy
       ? "Gemini is returning 503 (high demand). This is upstream and usually temporary — retry shortly."
-      : "Generation failed. See models[].probe.error.";
+      : "Generation failed. The full upstream error is in the server logs.";
   } else {
     out.hint = "Key is valid and models are reachable. Add ?probe=1 to spend one request testing generation for real.";
   }
