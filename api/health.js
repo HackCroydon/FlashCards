@@ -57,10 +57,20 @@ export default async function handler(req, res) {
   };
 
   if (!key) {
-    out.hint =
-      "GEMINI_API_KEY is not set. On Vercel: Settings -> Environment Variables, " +
-      "add it, then REDEPLOY (env vars only apply to new builds). " +
-      "Locally: GEMINI_API_KEY=your-key npm run dev";
+    /* A misspelled variable name looks correct at a glance and fails silently,
+       so list any key-ish names that ARE present. Names only — never values. */
+    const near = Object.keys(process.env)
+      .filter((k) => /gemini|gemeni|google|api.?key|flashcard/i.test(k))
+      .sort();
+    out.similarNamesFound = near.length ? near : "none";
+    out.hint = near.length
+      ? `GEMINI_API_KEY is not set, but these similar names exist: ${near.join(", ")}. ` +
+        "If one of those is your key, the name is misspelled — it must be exactly GEMINI_API_KEY. " +
+        "Rename it, then redeploy."
+      : "GEMINI_API_KEY is not set, and no similarly named variable exists either, so it " +
+        "was not saved to this project. In the Vercel project serving THIS url: " +
+        "Settings -> Environment Variables -> add GEMINI_API_KEY with Production ticked -> Save, " +
+        "then Deployments -> ... -> Redeploy. Locally: GEMINI_API_KEY=your-key npm run dev";
     return res.status(200).json(out);
   }
 
