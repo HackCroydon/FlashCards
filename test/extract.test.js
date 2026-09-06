@@ -106,6 +106,23 @@ async function offline() {
   globalThis.fetch = async () => ({ ok: false, status: 429, json: async () => ({}), text: async () => "" });
   check("upstream 429 -> 429", (await call({ images: [PNG_1PX] })).statusCode === 429);
 
+  // The free tier is ~20 requests/day/model, so this is the limit most
+  // deployments hit first. "Try again later" is wrong advice when the real
+  // answer is "tomorrow", so it must read as a daily limit.
+  const DAILY = JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED",
+    details: [{ violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }] }] } });
+  globalThis.fetch = async () => ({ ok: false, status: 429, json: async () => ({}), text: async () => DAILY });
+  const daily = await call({ images: [PNG_1PX] });
+  check("daily quota exhausted -> says it resets tomorrow",
+    daily.statusCode === 429 && /tomorrow/i.test(daily.body.error), JSON.stringify(daily.body));
+
+  // A short-term rate limit should surface the wait, not the daily message.
+  globalThis.fetch = async () => ({ ok: false, status: 429, json: async () => ({}),
+    text: async () => "rate limited. Please retry in 11.9s." });
+  const soon = await call({ images: [PNG_1PX] });
+  check("per-minute limit -> tells you how long to wait",
+    soon.statusCode === 429 && /12 seconds/.test(soon.body.error), JSON.stringify(soon.body));
+
   globalThis.fetch = async () => ({ ok: false, status: 403, json: async () => ({}), text: async () => "denied" });
   const badKey = await call({ images: [PNG_1PX] });
   check("bad key -> 502 without leaking the key", badKey.statusCode === 502 && !/test-key/.test(JSON.stringify(badKey.body)));

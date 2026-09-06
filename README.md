@@ -54,22 +54,45 @@ silently memorising wrong facts, which is the worst thing a study app can do.
 So every scan lands on a review screen first — untick anything wrong, tap
 **Edit** to fix a question or answer, then save.
 
+## Quota: read this before sharing the link
+
+The Gemini **free tier allows about 20 requests per day, per model**. The
+function walks three models, each with its own allowance, so a free-tier deploy
+supports roughly **60 scans a day site-wide** — shared across everyone who
+opens the page, not per visitor.
+
+That is fine for personal use. It is not enough for "anyone on the internet can
+scan their notes". To lift it, enable billing on the Google Cloud project behind
+the key: a scan is a small image plus a page of JSON, so paid usage runs
+fractions of a cent each.
+
+When the daily allowance runs out the app says so plainly and tells you it
+resets tomorrow, rather than pretending to be busy.
+
 ## Running it locally
 
+You do **not** need a Vercel account to run this:
+
 ```bash
-npm i -g vercel        # once
-vercel dev             # serves public/ and api/ together on localhost:3000
+GEMINI_API_KEY=your-key npm run dev     # then open http://localhost:3000
 ```
 
-`vercel dev` will ask for `GEMINI_API_KEY` — get one free at
-[aistudio.google.com/apikey](https://aistudio.google.com/apikey). Or put it in
-a `.env.local` file (already gitignored):
+PowerShell:
 
-```
-GEMINI_API_KEY=your-key-here
+```powershell
+$env:GEMINI_API_KEY="your-key"; npm run dev
 ```
 
-Without a key the site still runs; only the scan button will error.
+`dev-server.js` serves `public/` and runs `api/extract.js` with nothing but
+Node — no dependencies, no CLI, no login. Get a key at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+
+**Opening `public/index.html` directly as a file will not work for scanning.**
+There is no server in that case, so there is no `/api/extract` and no key. The
+app detects this and says so instead of blaming your connection.
+
+If you prefer the real Vercel runtime locally, `npm i -g vercel && vercel dev`
+also works.
 
 ## Deploying
 
@@ -84,8 +107,8 @@ the scan section in `public/index.html` to your Vercel URL, since Pages has no
 ## Tests
 
 ```bash
-node test/extract.test.js           # 21 offline tests, no key needed
-GEMINI_API_KEY=... node test/extract.test.js --live   # + one real Gemini call
+npm test                            # 24 offline tests, no key needed
+GEMINI_API_KEY=... npm run test:live # + one real Gemini call (uses daily quota)
 ```
 
 The offline suite covers input validation, the model-output → card-tuple
@@ -98,6 +121,7 @@ through the real endpoint.
 
 ```
 public/index.html   the whole app — markup, styles, logic, built-in decks
+dev-server.js       dependency-free local server (npm run dev)
 api/extract.js      serverless function; holds the key, calls Gemini
 test/               offline suite + PNG fixture generator
 vercel.json         function config

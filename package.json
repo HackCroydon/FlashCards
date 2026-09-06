@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Study Deck — flashcards, with decks generated from photos of your notes",
   "scripts": {
-    "dev": "vercel dev",
-    "test:extract": "node test/extract.test.js"
+    "dev": "node dev-server.js",
+    "test": "node test/extract.test.js",
+    "test:live": "node test/extract.test.js --live"
   }
 }

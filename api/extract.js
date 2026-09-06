@@ -18,16 +18,17 @@ const MAX_BYTES_PER_IMAGE = 2.5 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 3 * 1024 * 1024;
 const OK_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-// Preferred model first; we walk the list if one 404s so a model rename
-// upstream doesn't take the whole feature down. "gemini-flash-latest" is an
-// alias that should always resolve, so it anchors the chain.
-// Note: gemini-2.5-flash is deliberately absent — it now 404s for new API
-// keys ("no longer available to new users"), so it can only ever waste a hop.
 // Ordered by measured reliability on this workload, not by version number.
-// The newest models are the busiest: 3.8 and 3.7 returned 503 on every attempt
-// while 3.6 answered in ~10s. Reading notes does not need frontier reasoning,
-// so a model that responds beats a model that is nominally stronger.
-// Set GEMINI_MODEL to force a specific one.
+// 3.8 and 3.7 returned 503 on every attempt (3.8 took 72s to do it) while 3.6
+// answered in ~10s. Reading notes doesn't need frontier reasoning, so a model
+// that responds beats one that is nominally stronger.
+//
+// Walking the list also buys quota: the free tier allows only ~20 requests per
+// day PER MODEL, so each entry carries its own separate daily allowance.
+//
+// gemini-2.5-flash is deliberately absent — it now 404s for new API keys
+// ("no longer available to new users"), so it could only waste a hop.
+// Set GEMINI_MODEL to force a specific model to the front.
 const MODELS = [
   process.env.GEMINI_MODEL,
   "gemini-3.6-flash",
@@ -219,6 +220,7 @@ export default async function handler(req, res) {
 
   let lastErr = "Could not reach Gemini.";
   let overloaded = false;
+  let outOfQuota = false;
 
   // vercel.json gives this function 60s. Retrying three models three times can
   // outlast that, and a platform timeout gives the user a blank error instead
@@ -265,7 +267,22 @@ export default async function handler(req, res) {
     }
     if (RETRY_STATUS.has(r.status)) continue; // still swamped; try another model
     if (r.status === 429) {
-      return bad(res, 429, "The shared Gemini quota is used up for now. Try again later.");
+      // The free tier is only ~20 requests per day per model, so this is the
+      // limit most deployments hit first. Say which kind of limit it is —
+      // "try later" is useless advice if the answer is actually "tomorrow".
+      const detail = await r.text().catch(() => "");
+      const perDay = /PerDay|RequestsPerDay/i.test(detail);
+      console.error("Gemini quota exceeded:", detail.slice(0, 400));
+      if (perDay) {
+        // Another model in the chain has its own separate daily allowance.
+        outOfQuota = true;
+        lastErr = `${model} is out of daily quota.`;
+        continue;
+      }
+      const wait = /retry in ([\d.]+)s/i.exec(detail);
+      return bad(res, 429, wait
+        ? `Gemini is rate limiting us. Try again in about ${Math.ceil(+wait[1])} seconds.`
+        : "Gemini is rate limiting us right now. Give it a minute and try again.");
     }
     if (r.status === 400 || r.status === 403) {
       const detail = await r.text().catch(() => "");
@@ -312,6 +329,13 @@ export default async function handler(req, res) {
       truncated: finish === "MAX_TOKENS",
       model,
     });
+  }
+
+  // Every model out of its daily allowance is a different problem from a busy
+  // one, and "try again later" would be wrong advice: the answer is tomorrow.
+  if (outOfQuota) {
+    return bad(res, 429,
+      "Today's free Gemini quota is used up (the free tier allows only about 20 scans a day per model). It resets tomorrow.");
   }
 
   // If anything in the chain was swamped, say so. The last model's 404 is the

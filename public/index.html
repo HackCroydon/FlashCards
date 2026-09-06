@@ -1002,6 +1002,17 @@ function scanError(msg){
 }
 
 async function runScan(files){
+  /* Opened straight from disk: there is no server, so there is no /api/extract
+     and no key. Say that plainly instead of letting the fetch fail and blaming
+     the user's connection. */
+  if (location.protocol === "file:") {
+    return scanError(
+      "This page was opened as a file, so there's no server to read your notes. " +
+      "Run \"npm run dev\" in the project folder and open http://localhost:3000 instead, " +
+      "or use the deployed site."
+    );
+  }
+
   const pics = Array.from(files).filter(f => f.type.startsWith("image/"));
   if (!pics.length) return scanError("Those weren't image files. Use a photo or screenshot of your notes.");
   if (pics.length > MAX_PAGES) return scanError(`Up to ${MAX_PAGES} pages at a time — you picked ${pics.length}.`);
@@ -1038,6 +1049,15 @@ async function runScan(files){
     return scanError("Couldn't reach the server. Check your connection and try again.");
   }
 
+  /* A 404 means the page loaded but the function isn't there — a static host
+     (GitHub Pages) or a deploy that didn't pick up api/. Distinct from an error
+     the function itself returned, and needs a different fix. */
+  if (res.status === 404) {
+    return scanError(
+      "The scanning service isn't running at this address. If this is GitHub Pages, " +
+      "set VERCEL_API in index.html to your Vercel URL — Pages can't run the scanner itself."
+    );
+  }
   if (!res.ok || !data || !Array.isArray(data.cards)) {
     return scanError((data && data.error) || `The server returned an error (${res.status}).`);
   }
