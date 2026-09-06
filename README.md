@@ -91,6 +91,11 @@ vercel.json         function config
 
 ## Limits
 
-5 pages per scan, 4 MB per image, 8 MB total. A best-effort per-IP burst limit
-lives in the function, but serverless instances are ephemeral so the real
-ceiling is your Gemini quota.
+5 pages per scan, 2.5 MB per image, 3 MB total after the browser downscales
+them. That ceiling exists because Vercel rejects request bodies over 4.5 MB
+before the function runs and base64 inflates bytes by a third — the browser
+steps resolution down (1600 → 1300 → 1100px) until the batch fits rather than
+failing the upload.
+
+A best-effort per-IP burst limit lives in the function, but serverless
+instances are ephemeral so the real ceiling is your Gemini quota.

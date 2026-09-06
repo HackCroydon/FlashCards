@@ -10,8 +10,12 @@
  */
 
 const MAX_IMAGES = 5;
-const MAX_BYTES_PER_IMAGE = 4 * 1024 * 1024;
-const MAX_TOTAL_BYTES = 8 * 1024 * 1024;
+// Vercel rejects request bodies over 4.5 MB before this function runs, and
+// base64 inflates bytes by ~4/3. Keep the decoded total under ~3 MB so the
+// encoded body stays clear of that ceiling and users get our error, not the
+// platform's.
+const MAX_BYTES_PER_IMAGE = 2.5 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 3 * 1024 * 1024;
 const OK_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 // Preferred model first; we walk the list if one 404s so a model rename
@@ -179,6 +183,7 @@ export default async function handler(req, res) {
     return bad(res, 413, "Those pages are too large altogether. Try fewer pages at once.");
   }
 
+
   const steer = [];
   if (subject === "biology" || subject === "math") {
     steer.push(`These notes are for ${subject}. Use "${subject}" as the subject.`);
@@ -291,5 +296,3 @@ function safeJson(s) {
     return null;
   }
 }
-
-export const config = { api: { bodyParser: { sizeLimit: "10mb" } } };

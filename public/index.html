@@ -1008,11 +1008,22 @@ async function runScan(files){
 
   working("Reading your notes…", `${pics.length} page${pics.length===1?"":"s"} · this usually takes 10–30 seconds`);
 
+  /* The server caps the whole request at ~3 MB decoded. Five dense pages can
+     exceed that at full size, so step the resolution down until it fits rather
+     than letting the upload fail. 1100px still reads clearly. */
+  const budget = 3 * 1024 * 1024;
   let images;
   try {
-    images = await Promise.all(pics.map(f => downscale(f)));
+    for (const dim of [1600, 1300, 1100]) {
+      images = await Promise.all(pics.map(f => downscale(f, dim)));
+      const bytes = images.reduce((n,d) => n + d.length * 0.75, 0);
+      if (bytes < budget) break;
+    }
   } catch (e) {
     return scanError(e.message);
+  }
+  if (images.reduce((n,d) => n + d.length * 0.75, 0) >= budget) {
+    return scanError(`Those ${pics.length} pages are too large to send together. Try scanning two or three at a time.`);
   }
 
   let res, data;
