@@ -17,6 +17,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(HERE, "public");
 const PORT = Number(process.env.PORT) || 3000;
 
+/* Load .env.local so the key doesn't have to be typed on every run. It is
+   gitignored on purpose: this file must never reach the public repo. An
+   already-set environment variable wins, so CI and Vercel are unaffected. */
+for (const envFile of [".env.local", ".env"]) {
+  try { process.loadEnvFile(join(HERE, envFile)); } catch { /* absent, fine */ }
+}
+
 const ROUTES = {
   "/api/extract": (await import(pathToFileURL(join(HERE, "api", "extract.js")).href)).default,
   "/api/health": (await import(pathToFileURL(join(HERE, "api", "health.js")).href)).default,

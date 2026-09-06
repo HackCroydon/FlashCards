@@ -47,6 +47,13 @@ under a 45s overall deadline so the function always answers before Vercel's
 Cards come back as `[question, answer, group, [4 distractors]]`, the same shape
 the built-in decks use, so scanned decks work in quiz mode straight away.
 
+### Never put the key in the page
+
+`public/index.html` is sent to every visitor, and this repo is public. A key
+placed there would be readable by anyone viewing source and is scraped from
+public repos within minutes. The key belongs in a server env var only:
+`.env.local` locally, Vercel environment variables in production.
+
 ### Why there's a review screen
 
 OCR on handwriting misreads things. Saving straight to a deck would mean
@@ -71,7 +78,21 @@ resets tomorrow, rather than pretending to be busy.
 
 ## Running it locally
 
-You do **not** need a Vercel account to run this:
+Put your key in a `.env.local` file in the project root — it is gitignored, so
+it never reaches the repo:
+
+```
+GEMINI_API_KEY=your-key-here
+```
+
+Then just:
+
+```bash
+npm run dev                             # then open http://localhost:3000
+```
+
+You do **not** need a Vercel account to run this. You can also pass the key
+inline instead of using a file:
 
 ```bash
 GEMINI_API_KEY=your-key npm run dev     # then open http://localhost:3000
