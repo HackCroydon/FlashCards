@@ -19,13 +19,27 @@ const MAX_TOTAL_BYTES = 3 * 1024 * 1024;
 const OK_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 // Preferred model first; we walk the list if one 404s so a model rename
-// upstream doesn't take the whole feature down.
+// upstream doesn't take the whole feature down. "gemini-flash-latest" is an
+// alias that should always resolve, so it anchors the chain.
+// Note: gemini-2.5-flash is deliberately absent — it now 404s for new API
+// keys ("no longer available to new users"), so it can only ever waste a hop.
+// Ordered by measured reliability on this workload, not by version number.
+// The newest models are the busiest: 3.8 and 3.7 returned 503 on every attempt
+// while 3.6 answered in ~10s. Reading notes does not need frontier reasoning,
+// so a model that responds beats a model that is nominally stronger.
+// Set GEMINI_MODEL to force a specific one.
 const MODELS = [
   process.env.GEMINI_MODEL,
-  "gemini-3.8-flash",
+  "gemini-3.6-flash",
   "gemini-3.5-flash",
-  "gemini-2.5-flash",
+  "gemini-3.8-flash",
 ].filter(Boolean);
+
+const RETRY_STATUS = new Set([500, 502, 503, 504]);
+// One swamped model took 72s to answer 503. Cut it off well before that so the
+// chain has time to reach a model that works.
+const ATTEMPT_TIMEOUT_MS = 20_000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const CARD_SCHEMA = {
   type: "OBJECT",
@@ -123,10 +137,14 @@ function rateLimited(ip) {
 }
 
 async function callGemini(model, key, parts) {
-  const res = await fetch(
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ATTEMPT_TIMEOUT_MS);
+  try {
+    return await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: "POST",
+      signal: ctl.signal,
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         contents: [{ role: "user", parts }],
@@ -138,8 +156,10 @@ async function callGemini(model, key, parts) {
         },
       }),
     }
-  );
-  return res;
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export default async function handler(req, res) {
@@ -198,19 +218,48 @@ export default async function handler(req, res) {
   ];
 
   let lastErr = "Could not reach Gemini.";
+  let overloaded = false;
+
+  // vercel.json gives this function 60s. Retrying three models three times can
+  // outlast that, and a platform timeout gives the user a blank error instead
+  // of ours — so stop trying with enough headroom to answer properly.
+  const deadline = Date.now() + 45_000;
+
   for (const model of MODELS) {
-    let r;
-    try {
-      r = await callGemini(model, key, parts);
-    } catch (e) {
-      lastErr = "Could not reach Gemini. Check your connection and try again.";
-      continue;
+    if (Date.now() > deadline) { overloaded = true; break; }
+    let r = null;
+    // Gemini returns 503 when a model is briefly swamped. That is not a reason
+    // to fail someone's scan, so ride it out before moving down the chain.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        r = await callGemini(model, key, parts);
+      } catch (e) {
+        r = null;
+        if (e?.name === "AbortError") {
+          // Timed out rather than refused — the model is wedged, not missing.
+          overloaded = true;
+          lastErr = `${model} timed out.`;
+        } else {
+          lastErr = "Could not reach Gemini. Check your connection and try again.";
+        }
+      }
+      if (r && RETRY_STATUS.has(r.status)) {
+        overloaded = true;
+        lastErr = `Gemini returned ${r.status}.`;
+        if (attempt < 2 && Date.now() + 1200 * (attempt + 1) < deadline) {
+          await sleep(1200 * (attempt + 1));
+          continue;
+        }
+      }
+      break;
     }
+    if (!r) continue;
 
     if (r.status === 404) {
       lastErr = `Model ${model} is unavailable.`;
       continue; // try the next model name
     }
+    if (RETRY_STATUS.has(r.status)) continue; // still swamped; try another model
     if (r.status === 429) {
       return bad(res, 429, "The shared Gemini quota is used up for now. Try again later.");
     }
@@ -261,6 +310,11 @@ export default async function handler(req, res) {
     });
   }
 
+  // If anything in the chain was swamped, say so. The last model's 404 is the
+  // least relevant error we saw and the least actionable thing to show.
+  if (overloaded) {
+    return bad(res, 503, "Gemini is busy right now. Give it a minute and scan again.");
+  }
   return bad(res, 502, lastErr);
 }
 

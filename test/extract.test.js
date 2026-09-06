@@ -10,6 +10,8 @@ import handler from "../api/extract.js";
 import { notesPng, SAMPLE_NOTES } from "./make-notes-png.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+// Captured before the offline tests overwrite the env with a dummy key.
+const REAL_KEY = process.env.GEMINI_API_KEY;
 let pass = 0, fail = 0;
 
 function check(name, cond, detail = "") {
@@ -121,8 +123,35 @@ async function offline() {
   });
   check("unparseable output -> 502", (await call({ images: [PNG_1PX] })).statusCode === 502);
 
+  console.log("\nOverload handling");
+  // 503 twice, then success: the scan should ride it out, not fail.
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    if (calls <= 2) return { ok: false, status: 503, json: async () => ({}), text: async () => "" };
+    return {
+      ok: true, status: 200,
+      json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{
+        text: JSON.stringify({ deckName: "D", subject: "biology", cards: [
+          { question: "Q", answer: "A", group: "term", distractors: ["a", "b", "c", "d"] }] }),
+      }] } }] }),
+      text: async () => "",
+    };
+  };
+  const retried = await call({ images: [PNG_1PX] });
+  check("retries through a transient 503 and succeeds",
+    retried.statusCode === 200 && calls === 3, `status ${retried.statusCode}, ${calls} calls`);
+
+  // Permanently swamped: report the overload, not the last model's 404.
+  globalThis.fetch = async () => ({ ok: false, status: 503, json: async () => ({}), text: async () => "" });
+  const swamped = await call({ images: [PNG_1PX] });
+  check("sustained overload -> 503, not a confusing model error",
+    swamped.statusCode === 503 && /busy/i.test(swamped.body.error), JSON.stringify(swamped.body));
+
   console.log("\nRate limit");
-  globalThis.fetch = async () => ({ ok: false, status: 500, json: async () => ({}), text: async () => "" });
+  // 404 rather than 500: a retryable status would make each call take seconds,
+  // and the burst would outlast the limiter's own 60s window.
+  globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}), text: async () => "" });
   const res0 = mockRes();
   const burst = { method: "POST", headers: { "x-forwarded-for": "9.9.9.9" }, socket: {}, body: { images: [PNG_1PX] } };
   let limited = false;
@@ -147,11 +176,11 @@ async function offline() {
 
 async function live() {
   console.log("\nLive Gemini call");
-  const key = process.env.GEMINI_API_KEY;
-  if (!key || key === "test-key") {
+  if (!REAL_KEY || REAL_KEY === "test-key") {
     console.log("  skip (set GEMINI_API_KEY to run)");
     return;
   }
+  process.env.GEMINI_API_KEY = REAL_KEY; // offline() clobbered it
   globalThis.fetch = realFetch;
 
   const dataUrl = "data:image/png;base64," + notesPng(SAMPLE_NOTES).toString("base64");

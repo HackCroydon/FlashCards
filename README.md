@@ -19,7 +19,7 @@ browser                          /api/extract (server)          Gemini
   └─ downscale to 1600px JPEG
      └─ POST { images: [...] } ──►
                                   GEMINI_API_KEY (env var)
-                                  └─ generateContent ──────────► gemini-3.8-flash
+                                  └─ generateContent ──────────► gemini-3.6-flash
                                                                  responseSchema
                                   ◄──── { deckName, cards[] } ───┘
      ◄── [q, a, group, [4 wrong]]
@@ -29,6 +29,20 @@ browser                          /api/extract (server)          Gemini
 
 The API key lives only in a server env var. It is never sent to the browser, so
 anyone can use the scan feature without having a key of their own.
+
+### Model choice
+
+The function walks a chain of models and uses the first that answers:
+`gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3.8-flash`. That order is by
+measured reliability, not version number — when this was built the newest
+models (3.8, 3.7, and the `gemini-flash-latest` alias) returned 503 on every
+attempt while 3.6 answered in about 10 seconds. Reading notes doesn't need
+frontier reasoning, so a model that responds beats one that's nominally
+stronger. Set `GEMINI_MODEL` to force a specific model to the front.
+
+Each attempt is capped at 20s and transient 503s are retried with backoff,
+under a 45s overall deadline so the function always answers before Vercel's
+60s timeout cuts it off.
 
 Cards come back as `[question, answer, group, [4 distractors]]`, the same shape
 the built-in decks use, so scanned decks work in quiz mode straight away.
@@ -70,7 +84,7 @@ the scan section in `public/index.html` to your Vercel URL, since Pages has no
 ## Tests
 
 ```bash
-node test/extract.test.js           # 19 offline tests, no key needed
+node test/extract.test.js           # 21 offline tests, no key needed
 GEMINI_API_KEY=... node test/extract.test.js --live   # + one real Gemini call
 ```
 
