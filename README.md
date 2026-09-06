@@ -61,6 +61,23 @@ silently memorising wrong facts, which is the worst thing a study app can do.
 So every scan lands on a review screen first — untick anything wrong, tap
 **Edit** to fix a question or answer, then save.
 
+## Colour
+
+Category colours are generated, not picked by eye: eight OKLCH values at
+constant lightness and chroma, so no category visually outweighs another. The
+contrast spread across all eight is 5.51-6.09 in light and 8.82-9.57 in dark.
+Every colour in the interface clears WCAG AA (4.5:1) as text on its own
+surface, checked by `npm run test:palette`.
+
+Two things that audit changed. `muted` shipped failing AA at 3.68 and is now
+5.20; it is used for card meta, labels and footnotes, so it was the most-read
+failing text in the app. And a colour-vision check showed the red and amber
+categories converge under deuteranopia (OKLab distance 0.028) - eight hues
+cannot all stay separable once the red-green axis collapses. That is accepted
+rather than fixed: colour is never the only signal here, since every category
+section is labelled with its name, so WCAG 1.4.1 is satisfied. Optimising
+purely for separation was tried and produced a muddy, incoherent set.
+
 ## Quota: read this before sharing the link
 
 The Gemini **free tier allows about 20 requests per day, per model**. The
