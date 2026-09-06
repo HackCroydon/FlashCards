@@ -98,6 +98,42 @@ setTimeout(async () => {
        "alerts=" + fired + " nodes=" + nodes);
     ok("hostile text renders literally",
        document.querySelector("#reviewBody .rcard .q").textContent.startsWith("<img"));
+
+    // Batching: a note set larger than one request must go up in chunks,
+    // dedupe repeated headings across pages, and keep what succeeded when a
+    // later batch fails rather than throwing the whole scan away.
+    {
+      const realFetch = window.fetch;
+      let calls = 0, failAt = 0;
+      window.fetch = async (u, o) => {
+        if (!String(u).includes("/api/extract")) return realFetch(u, o);
+        calls++;
+        if (failAt && calls === failAt)
+          return { ok:false, status:429, text: async () => JSON.stringify({ error:"quota" }) };
+        return { ok:true, status:200, text: async () => JSON.stringify({
+          deckName:"S", subject:"biology", model:"stub",
+          cards:[["repeated heading","A","term",["a","b","c","d"]],
+                 ["u"+calls,"A","term",["a","b","c","d"]]] }) };
+      };
+      const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+      const blob = await (await realFetch(png)).blob();
+      const pages = n => Array.from({length:n}, (_,i) => new File([blob], "p"+i+".png", {type:"image/png"}));
+
+      calls = 0; await runScan(pages(10));
+      ok("10 pages are sent as 3 batches", calls === 3, "calls=" + calls);
+      ok("repeated headings are deduped across batches",
+         draft.cards.filter(c => c[0] === "repeated heading").length === 1);
+      ok("every unique card is kept", draft.cards.length === 4, "got " + draft.cards.length);
+
+      calls = 0; await runScan(pages(30));
+      ok("over the page cap, nothing is uploaded", calls === 0, "calls=" + calls);
+
+      calls = 0; failAt = 2; await runScan(pages(10));
+      ok("a failed batch keeps the earlier ones", draft && draft.cards.length === 2,
+         "kept " + (draft ? draft.cards.length : 0));
+      ok("a partial scan says so", !!draft.partial);
+      window.fetch = realFetch;
+    }
   } catch (e) {
     console.log("T|FAIL|harness threw|" + e.message);
   }

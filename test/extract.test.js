@@ -185,13 +185,25 @@ async function offline() {
   globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({}), text: async () => "" });
   const res0 = mockRes();
   const burst = { method: "POST", headers: { "x-forwarded-for": "9.9.9.9" }, socket: {}, body: { images: [PNG_1PX] } };
+  /* The cap was raised to 14/min so a 24-page scan (6 sequential batches)
+     is not mistaken for abuse, so the burst has to exceed that. */
   let limited = false;
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 20; i++) {
     const r = mockRes();
     await handler(burst, r);
     if (r.statusCode === 429) limited = true;
   }
   check("a burst from one IP eventually gets 429", limited);
+
+  // A real 24-page scan is 6 batches in a row; that must not be rate limited.
+  let blocked = false;
+  for (let i = 0; i < 6; i++) {
+    const r = mockRes();
+    await handler({ method:"POST", headers:{ "x-forwarded-for":"7.7.7.7" }, socket:{},
+                    body:{ images:[PNG_1PX] } }, r);
+    if (r.statusCode === 429) blocked = true;
+  }
+  check("a 6-batch scan is not mistaken for abuse", !blocked);
   void res0;
 
   console.log("\nPNG fixture");

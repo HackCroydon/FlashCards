@@ -124,7 +124,9 @@ function parseDataUrl(entry, i) {
  */
 const hits = new Map();
 const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 6;
+// A 24-page scan is 6 sequential batches inside a minute, so the cap has to
+// clear that with headroom. The daily Gemini quota is the real ceiling.
+const MAX_PER_WINDOW = 14;
 
 function rateLimited(ip) {
   const now = Date.now();

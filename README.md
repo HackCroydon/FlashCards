@@ -61,7 +61,28 @@ silently memorising wrong facts, which is the worst thing a study app can do.
 So every scan lands on a review screen first — untick anything wrong, tap
 **Edit** to fix a question or answer, then save.
 
+## Scanning a whole note set
+
+One request cannot carry a whole notebook: Vercel caps the body at 4.5 MB and
+Gemini has an output ceiling. Pick up to 24 pages and the browser splits them
+into batches of 4, sends them one after another, and merges the results.
+Progress reads "Reading pages 5-8...".
+
+Pages often restate the previous page's heading, so cards whose question already
+appeared in an earlier batch are dropped. If a batch fails partway through, the
+cards already gathered are kept and the review screen says the set is partial:
+losing 15 good pages because page 16 failed would be the worst outcome.
+
+Each batch is one Gemini request, so a 24-page scan costs 6 of the free tier's
+roughly 20 daily requests.
+
 ## Colour
+
+The interface is an ocean: sea-mist paper in light, deep water in dark, with a
+shoal of fish drifting behind the content that scatters when you click. The
+shoal is one canvas, about 16 fish, paused when the tab is hidden, skipped
+entirely under reduced-motion, and it never takes pointer events so it cannot
+block the UI.
 
 Category colours are generated, not picked by eye: eight OKLCH values at
 constant lightness and chroma, so no category visually outweighs another. The

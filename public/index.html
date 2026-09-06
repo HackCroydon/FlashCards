@@ -26,43 +26,43 @@
 
   /* daylight — an exercise book under a window */
   html[data-theme="light"]{
-    --paper:#F6F2E9;
-    --card:#FFFDF8;
-    --raise:#EFE9DC;
-    --rule:#DCE4EE;
-    --edge:#E0D6C4;
-    --edge-soft:#EBE3D5;
-    --ink:#241C14;
-    --ink-2:#5A4E42;
-    --muted:#706B64;
-    --bio:#307543;
-    --math:#2C689D;
-    --marker:#F5D64E;
-    --wrong:#B4442F;
-    --onInk:#FFFDF8;
-    --lift:0 1px 2px rgba(60,40,20,.10),0 10px 26px rgba(60,40,20,.10);
-    --deep:0 2px 4px rgba(60,40,20,.12),0 22px 48px rgba(60,40,20,.16);
-    --tooth:.30;
+    --paper:#ECF6F6;
+    --card:#F8FDFD;
+    --raise:#DFEDED;
+    --rule:#CADDE3;
+    --edge:#C7D8DB;
+    --edge-soft:#DCE9EB;
+    --ink:#10232E;
+    --ink-2:#455A63;
+    --muted:#5D6E73;
+    --bio:#497035;
+    --math:#39659A;
+    --marker:#F2D06B;
+    --wrong:#934B47;
+    --onInk:#F8FDFD;
+    --lift:0 1px 2px rgba(12,44,58,.09),0 10px 26px rgba(12,44,58,.10);
+    --deep:0 2px 4px rgba(12,44,58,.11),0 22px 48px rgba(12,44,58,.15);
+    --tooth:.22;
   }
   /* desk lamp — same book, 1am */
   html[data-theme="dark"]{
-    --paper:#15110D;
-    --card:#201A15;
-    --raise:#2A231C;
-    --rule:#31281F;
-    --edge:#3A2F25;
-    --edge-soft:#2B231C;
-    --ink:#F4EADB;
-    --ink-2:#C9B9A6;
-    --muted:#88827C;
-    --bio:#91CF9D;
-    --math:#8CC3F8;
-    --marker:#E5C24E;
-    --wrong:#D9705A;
-    --onInk:#15110D;
-    --lift:0 1px 2px rgba(0,0,0,.4),0 12px 28px rgba(0,0,0,.42);
-    --deep:0 2px 6px rgba(0,0,0,.5),0 26px 54px rgba(0,0,0,.55);
-    --tooth:.16;
+    --paper:#07141C;
+    --card:#13232B;
+    --raise:#21323A;
+    --rule:#2D3D44;
+    --edge:#364850;
+    --edge-soft:#253339;
+    --ink:#E3F0F0;
+    --ink-2:#B0C4C6;
+    --muted:#7D9094;
+    --bio:#A3CC90;
+    --math:#94C1F8;
+    --marker:#E3BE63;
+    --wrong:#F3A7A1;
+    --onInk:#07141C;
+    --lift:0 1px 2px rgba(0,0,0,.45),0 12px 28px rgba(0,0,0,.45);
+    --deep:0 2px 6px rgba(0,0,0,.55),0 26px 54px rgba(0,0,0,.6);
+    --tooth:.14;
   }
 
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -81,6 +81,10 @@
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
   }
   html[data-theme="dark"] body::after{mix-blend-mode:overlay}
+  #sea{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    /* the shoal is background texture, not content */
+  }
   .app{width:100%;max-width:620px;position:relative;z-index:2}
 
   ::selection{background:var(--marker);color:#241C14}
@@ -470,12 +474,12 @@
 
   /* category palette — ink colours, one per category */
   html[data-theme="light"]{
-    --c1:#307543; --c2:#097374; --c3:#2C689D; --c4:#625A9D;
-    --c5:#834E85; --c6:#974954; --c7:#935125; --c8:#766405;
+    --c1:#497035; --c2:#0D745F; --c3:#097176; --c4:#086E8A;
+    --c5:#39659A; --c6:#635897; --c7:#934B47; --c8:#88561B;
   }
   html[data-theme="dark"]{
-    --c1:#91CF9D; --c2:#6BD1D2; --c3:#8CC3F8; --c4:#BAB4F8;
-    --c5:#DEA9DF; --c6:#F4A4AD; --c7:#EFAD85; --c8:#D0BE75;
+    --c1:#A3CC90; --c2:#7AD1B9; --c3:#6FD0D5; --c4:#78CBEA;
+    --c5:#94C1F8; --c6:#BCB4F5; --c7:#F3A7A1; --c8:#E7B27D;
   }
 
   .deckrow{display:flex;align-items:stretch;gap:2px;border-radius:10px;transition:background .22s var(--ease)}
@@ -527,6 +531,7 @@
 </style>
 </head>
 <body>
+<canvas id="sea" aria-hidden="true"></canvas>
 <div class="app">
 
   <!-- HOME -->
@@ -551,7 +556,7 @@
       </span>
       <span class="txt">
         <b>Scan your notes</b>
-        <span>Photograph a page and get a deck back</span>
+        <span>Photograph up to 24 pages and get a deck back</span>
       </span>
     </button>
     <input type="file" id="scanInput" accept="image/*" multiple class="hide">
@@ -1188,8 +1193,7 @@ $("btnTheme").onclick = () => {
 const VERCEL_API = "";           // e.g. "https://flashcards-hackcroydon.vercel.app"
 const API_BASE = /github\.io$/.test(location.hostname) ? VERCEL_API : "";
 
-const MAX_PAGES = 5;
-let draft = null;   // { deckName, subject, cards:[[q,a,group,distractors]], keep:[bool] }
+let draft = null;   // { deckName, subject, cards, keep, truncated, partial }
 
 /* Phone photos are 4000px and 6 MB. Shrink before upload: Gemini reads text
    fine at this size and it keeps us under the request limit. */
@@ -1273,6 +1277,35 @@ function scanError(msg){
   $("seHealth").onclick = () => window.open(`${API_BASE}/api/health?probe=1`, "_blank");
 }
 
+/* One request can only carry a few pages: Vercel caps the body at 4.5 MB and
+   Gemini has an output ceiling, so a whole note set has to go up in batches.
+   Each batch is one Gemini request, and the free tier allows ~20 a day, which
+   is why the page count is capped and the cost is stated up front. */
+const PAGES_PER_BATCH = 4;
+const MAX_PAGES = 24;
+
+/** Send one batch. Resolves {ok, cards, deckName, subject, truncated} or {ok:false, error, status}. */
+async function sendBatch(images){
+  const payload = JSON.stringify({ images });
+  let res, raw = "", data = null;
+  try {
+    res = await fetch(`${API_BASE}/api/extract`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: payload
+    });
+    raw = await res.text();
+    try { data = JSON.parse(raw); } catch {}
+  } catch (e) {
+    return { ok:false, error:"Couldn't reach the scanning service. If you're running this locally, make sure \"npm run dev\" is still running in your terminal." };
+  }
+  if (res.status === 404) {
+    return { ok:false, status:404, error:"The scanning service isn't running at this address. If this is GitHub Pages, set VERCEL_API in index.html to your Vercel URL." };
+  }
+  if (!res.ok || !data || !Array.isArray(data.cards)) {
+    return { ok:false, status:res.status, error:(data && data.error) || `The server returned an error (HTTP ${res.status}).` };
+  }
+  return { ok:true, ...data };
+}
+
 async function runScan(files){
   const t0 = Date.now();
   diag = {};
@@ -1280,9 +1313,6 @@ async function runScan(files){
   dbg("endpoint", `${API_BASE || location.origin}/api/extract`);
   dbg("files", Array.from(files).map(f => `${f.name} ${f.type||"?"} ${Math.round(f.size/1024)}KB`));
 
-  /* Opened straight from disk: there is no server, so there is no /api/extract
-     and no key. Say that plainly instead of letting the fetch fail and blaming
-     the user's connection. */
   if (location.protocol === "file:") {
     return scanError(
       "This page was opened as a file, so there's no server to read your notes. " +
@@ -1293,74 +1323,76 @@ async function runScan(files){
 
   const pics = Array.from(files).filter(f => f.type.startsWith("image/"));
   if (!pics.length) return scanError("Those weren't image files. Use a photo or screenshot of your notes.");
-  if (pics.length > MAX_PAGES) return scanError(`Up to ${MAX_PAGES} pages at a time — you picked ${pics.length}.`);
+  if (pics.length > MAX_PAGES) {
+    return scanError(`That's ${pics.length} pages. ${MAX_PAGES} at a time is the limit — scan the rest as a second batch and add them to the same deck.`);
+  }
 
-  working("Reading your notes…", `${pics.length} page${pics.length===1?"":"s"} · this usually takes 10–30 seconds`);
+  const batches = [];
+  for (let i = 0; i < pics.length; i += PAGES_PER_BATCH) batches.push(pics.slice(i, i + PAGES_PER_BATCH));
+  dbg("batches", `${pics.length} page(s) in ${batches.length} batch(es) of up to ${PAGES_PER_BATCH}`);
 
-  /* The server caps the whole request at ~3 MB decoded. Five dense pages can
-     exceed that at full size, so step the resolution down until it fits rather
-     than letting the upload fail. 1100px still reads clearly. */
-  const budget = 3 * 1024 * 1024;
-  let images;
-  try {
-    for (const dim of [1600, 1300, 1100]) {
-      images = await Promise.all(pics.map(f => downscale(f, dim)));
-      const bytes = images.reduce((n,d) => n + d.length * 0.75, 0);
-      dbg("downscale", `${dim}px -> ${(bytes/1048576).toFixed(2)}MB`);
-      if (bytes < budget) break;
+  const all = [];
+  const seen = new Set();
+  let deckName = null, subject = null, truncated = false, failure = null;
+
+  for (let b = 0; b < batches.length; b++) {
+    const from = b * PAGES_PER_BATCH + 1;
+    const to = from + batches[b].length - 1;
+    working(
+      batches.length === 1 ? "Reading your notes…" : `Reading pages ${from}–${to}…`,
+      batches.length === 1
+        ? `${pics.length} page${pics.length===1?"":"s"}, usually 10–30 seconds`
+        : `Batch ${b+1} of ${batches.length}. ${all.length} card${all.length===1?"":"s"} so far.`
+    );
+
+    /* Shrink until this batch fits the request budget. */
+    const budget = 3 * 1024 * 1024;
+    let images = null;
+    try {
+      for (const dim of [1600, 1300, 1100]) {
+        images = await Promise.all(batches[b].map(f => downscale(f, dim)));
+        const bytes = images.reduce((n,d) => n + d.length * 0.75, 0);
+        if (b === 0) dbg("downscale", `${dim}px -> ${(bytes/1048576).toFixed(2)}MB`);
+        if (bytes < budget) break;
+      }
+    } catch (e) {
+      dbg("downscaleError", e.message);
+      failure = e.message; break;
     }
-  } catch (e) {
-    dbg("downscaleError", e.message);
-    return scanError(e.message);
-  }
-  if (images.reduce((n,d) => n + d.length * 0.75, 0) >= budget) {
-    return scanError(`Those ${pics.length} pages are too large to send together. Try scanning two or three at a time.`);
+    if (images.reduce((n,d) => n + d.length * 0.75, 0) >= budget) {
+      failure = `Pages ${from}–${to} are too large to send together. Try photographing them at a lower resolution.`;
+      break;
+    }
+
+    const out = await sendBatch(images);
+    dbg(`batch${b+1}`, out.ok ? `${out.cards.length} cards via ${out.model || "?"}` : `failed: ${out.error}`);
+
+    if (!out.ok) { failure = out.error; break; }
+
+    deckName = deckName || out.deckName;
+    subject = subject || out.subject;
+    truncated = truncated || !!out.truncated;
+
+    // Pages often restate the previous page's heading, so drop repeats.
+    for (const c of out.cards) {
+      const k = String(c[0]).trim().toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k); all.push(c);
+    }
   }
 
-  const payload = JSON.stringify({ images });
-  dbg("upload", `${images.length} image(s), ${(payload.length/1048576).toFixed(2)}MB body`);
+  dbg("total", `${all.length} cards from ${batches.length} batch(es) in ${((Date.now()-t0)/1000).toFixed(1)}s`);
 
-  let res, data, raw = "";
-  try {
-    res = await fetch(`${API_BASE}/api/extract`, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: payload
-    });
-    dbg("status", `HTTP ${res.status} after ${((Date.now()-t0)/1000).toFixed(1)}s`);
-    raw = await res.text();
-    try { data = JSON.parse(raw); }
-    catch { dbg("parseError", raw.slice(0,200) || "(empty response)"); }
-  } catch (e) {
-    dbg("networkError", `${e.name}: ${e.message}`);
-    return scanError(
-      "Couldn't reach the scanning service. If you're running this locally, make sure " +
-      "\"npm run dev\" is still running in your terminal."
-    );
-  }
-
-  /* A 404 means the page loaded but the function isn't there — a static host
-     (GitHub Pages) or a deploy that didn't pick up api/. Distinct from an error
-     the function itself returned, and needs a different fix. */
-  if (res.status === 404) {
-    return scanError(
-      "The scanning service isn't running at this address. If this is GitHub Pages, " +
-      "set VERCEL_API in index.html to your Vercel URL — Pages can't run the scanner itself."
-    );
-  }
-  if (!res.ok || !data || !Array.isArray(data.cards)) {
-    if (data && data.error) dbg("serverError", data.error);
-    return scanError((data && data.error) || `The server returned an error (HTTP ${res.status}).`);
-  }
-  dbg("model", data.model || "(not reported)");
-  dbg("cards", data.cards.length);
+  /* A later batch failing shouldn't throw away the earlier ones. */
+  if (!all.length) return scanError(failure || "No cards were found in those pages.");
 
   draft = {
-    deckName: data.deckName || "Scanned notes",
-    subject: data.subject === "math" ? "math" : "biology",
-    cards: data.cards,
-    keep: data.cards.map(() => true),
-    truncated: !!data.truncated
+    deckName: deckName || "Scanned notes",
+    subject: subject === "math" ? "math" : "biology",
+    cards: all,
+    keep: all.map(() => true),
+    truncated,
+    partial: failure ? `Pages after ${all.length ? "the ones below" : "this"} couldn't be read: ${failure}` : null,
   };
   renderReview();
 }
@@ -1407,6 +1439,7 @@ function renderReview(){
       </div>
       <p class="sub hide" id="rappend"></p>
     </div>
+    ${draft.partial ? `<div class="rwarn">Some pages could not be read, so this is only part of the set. What was read is below. ${esc(draft.partial)}</div>` : ""}
     ${draft.truncated ? `<div class="rwarn">These notes were long and Gemini ran out of room, so the last few facts may be missing. Scan the rest as a second deck.</div>` : ""}
     <p class="rcount" id="rcount">${kept} of ${draft.cards.length} selected</p>
     ${rows}
@@ -1878,6 +1911,143 @@ document.addEventListener("keydown", e => {
 });
 
 (async () => { await load(); renderHome(); })();
+
+/* ------------------------------------------------------------------
+   A small shoal drifting behind the page. Clicking anywhere sends the
+   nearby fish darting off, then they settle back to a cruise.
+
+   Deliberately cheap: one canvas, no library, ~16 fish, paused when the
+   tab is hidden and skipped entirely for reduced-motion or tiny screens.
+   The canvas never takes pointer events — clicks are read from the
+   document so nothing in the UI is blocked.
+------------------------------------------------------------------ */
+(function shoal(){
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced) return;
+
+  const cv = document.getElementById("sea");
+  if (!cv || !cv.getContext) return;
+  const cx = cv.getContext("2d", { alpha: true });
+
+  let W = 0, H = 0, dpr = 1, fish = [], raf = null, last = 0;
+
+  const rand = (a,b) => a + Math.random() * (b - a);
+  const COUNT = () => Math.max(6, Math.min(18, Math.round(innerWidth * innerHeight / 78000)));
+
+  function palette(){
+    const cs = getComputedStyle(document.documentElement);
+    return ["c2","c3","c4","c5"].map(k => cs.getPropertyValue("--" + k).trim() || "#6FD0D5");
+  }
+
+  function spawn(n){
+    const cols = palette();
+    fish = Array.from({length:n}, () => {
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      return {
+        x: rand(0, W), y: rand(0, H),
+        vx: dir * rand(14, 34), vy: rand(-6, 6),
+        len: rand(11, 22),
+        col: cols[(Math.random() * cols.length) | 0],
+        alpha: rand(0.16, 0.4),
+        phase: rand(0, Math.PI * 2),
+        wob: rand(1.6, 3.2),
+      };
+    });
+  }
+
+  function resize(){
+    dpr = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    cv.style.width = W + "px"; cv.style.height = H + "px";
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (fish.length !== COUNT()) spawn(COUNT());
+  }
+
+  /* A fish: teardrop body plus a tail that beats as it swims. */
+  function draw(f, t){
+    const ang = Math.atan2(f.vy, f.vx);
+    const beat = Math.sin(t * f.wob + f.phase);
+    cx.save();
+    cx.translate(f.x, f.y);
+    cx.rotate(ang);
+    cx.globalAlpha = f.alpha;
+    cx.fillStyle = f.col;
+
+    const L = f.len, Bd = L * 0.42;
+    cx.beginPath();
+    cx.moveTo(L * 0.5, 0);
+    cx.quadraticCurveTo(0, -Bd, -L * 0.42, 0);
+    cx.quadraticCurveTo(0, Bd, L * 0.5, 0);
+    cx.fill();
+
+    cx.beginPath();                       // tail
+    cx.moveTo(-L * 0.38, 0);
+    cx.lineTo(-L * 0.72, -Bd * (0.55 + beat * 0.35));
+    cx.lineTo(-L * 0.72,  Bd * (0.55 - beat * 0.35));
+    cx.closePath();
+    cx.fill();
+    cx.restore();
+  }
+
+  function step(now){
+    const t = now / 1000;
+    const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+    last = now;
+    cx.clearRect(0, 0, W, H);
+
+    for (const f of fish){
+      // gentle wander, then ease back toward a cruising speed
+      f.vy += Math.sin(t * 0.6 + f.phase) * 6 * dt;
+      const sp = Math.hypot(f.vx, f.vy);
+      const cruise = 26;
+      if (sp > cruise){
+        const k = 1 - Math.min(1, (sp - cruise) * 0.9 * dt / sp);
+        f.vx *= k; f.vy *= k;
+      } else if (sp < cruise * 0.6){
+        f.vx *= 1 + 0.6 * dt;
+      }
+      f.vy *= 0.995;
+
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+
+      const m = f.len * 2;                // wrap around the edges
+      if (f.x < -m) f.x = W + m; else if (f.x > W + m) f.x = -m;
+      if (f.y < -m) f.y = H + m; else if (f.y > H + m) f.y = -m;
+
+      draw(f, t);
+    }
+    raf = requestAnimationFrame(step);
+  }
+
+  /** Anything nearby bolts away from the point, hardest at the centre. */
+  function scatter(px, py){
+    for (const f of fish){
+      const dx = f.x - px, dy = f.y - py;
+      const d = Math.hypot(dx, dy);
+      if (d > 240) continue;
+      const push = (1 - d / 240) ** 2 * 460;
+      const nx = d < 1 ? Math.random() - 0.5 : dx / d;
+      const ny = d < 1 ? Math.random() - 0.5 : dy / d;
+      f.vx += nx * push;
+      f.vy += ny * push * 0.7;
+    }
+  }
+
+  const start = () => { if (!raf){ last = performance.now(); raf = requestAnimationFrame(step); } };
+  const stop  = () => { if (raf){ cancelAnimationFrame(raf); raf = null; } };
+
+  addEventListener("resize", resize, { passive: true });
+  document.addEventListener("click", e => scatter(e.clientX, e.clientY), { passive: true });
+  document.addEventListener("visibilitychange", () => document.hidden ? stop() : start());
+  // the theme toggle changes the palette the fish are drawn from
+  new MutationObserver(() => { const c = palette(); fish.forEach(f => f.col = c[(Math.random()*c.length)|0]); })
+    .observe(document.documentElement, { attributes:true, attributeFilter:["data-theme"] });
+
+  resize();
+  start();
+})();
 </script>
 </body>
 </html>
