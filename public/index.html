@@ -387,6 +387,13 @@
   .rfoot{position:sticky;bottom:0;padding:14px 0 calc(6px + env(safe-area-inset-bottom));
     background:linear-gradient(to top,var(--canvas) 62%,transparent)}
 
+  .diag{
+    text-align:left;background:var(--canvas);border:1px solid var(--line-soft);border-radius:11px;
+    padding:12px;margin:12px 0 0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11.5px;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;word-break:break-word;
+    max-height:260px;overflow:auto;
+  }
+
   @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
 </style>
 </head>
@@ -987,8 +994,25 @@ function working(title, note){
     </div>`;
 }
 
+/* Everything the scan learned about itself, for the error screen and console.
+   Rebuilt per scan so it never shows stale numbers from a previous attempt. */
+let diag = {};
+
+function dbg(step, detail){
+  diag[step] = detail;
+  console.log(`[scan] ${step}:`, detail);
+}
+
+function diagText(){
+  return Object.entries(diag)
+    .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+    .join("\n");
+}
+
 function scanError(msg){
   showScreen("review");
+  const report = diagText();
+  console.warn("[scan] FAILED —", msg, "\n" + report);
   $("reviewBody").innerHTML = `<div class="done">
       <h3>That didn't work</h3>
       <p>${esc(msg)}</p>
@@ -996,12 +1020,34 @@ function scanError(msg){
         <button class="act" id="seHome">Back to decks</button>
         <button class="act primary" id="seRetry">Try another photo</button>
       </div>
+      <div class="row"><button class="act ghost" id="seDiag">Show technical details</button></div>
+      <pre class="diag hide" id="diagBox">${esc(report)}</pre>
+      <div class="row hide" id="diagRow">
+        <button class="act ghost" id="seCopy">Copy details</button>
+        <button class="act ghost" id="seHealth">Check the server</button>
+      </div>
     </div>`;
   $("seHome").onclick = () => renderHome();
   $("seRetry").onclick = () => $("scanInput").click();
+  $("seDiag").onclick = () => {
+    const open = !$("diagBox").classList.toggle("hide");
+    $("diagRow").classList.toggle("hide", !open);
+    $("seDiag").textContent = open ? "Hide technical details" : "Show technical details";
+  };
+  $("seCopy").onclick = async () => {
+    try { await navigator.clipboard.writeText(report); toast("Details copied"); }
+    catch { toast("Select the text and copy it"); }
+  };
+  $("seHealth").onclick = () => window.open(`${API_BASE}/api/health?probe=1`, "_blank");
 }
 
 async function runScan(files){
+  const t0 = Date.now();
+  diag = {};
+  dbg("page", `${location.protocol}//${location.host || "(none)"}${location.pathname}`);
+  dbg("endpoint", `${API_BASE || location.origin}/api/extract`);
+  dbg("files", Array.from(files).map(f => `${f.name} ${f.type||"?"} ${Math.round(f.size/1024)}KB`));
+
   /* Opened straight from disk: there is no server, so there is no /api/extract
      and no key. Say that plainly instead of letting the fetch fail and blaming
      the user's connection. */
@@ -1028,25 +1074,37 @@ async function runScan(files){
     for (const dim of [1600, 1300, 1100]) {
       images = await Promise.all(pics.map(f => downscale(f, dim)));
       const bytes = images.reduce((n,d) => n + d.length * 0.75, 0);
+      dbg("downscale", `${dim}px -> ${(bytes/1048576).toFixed(2)}MB`);
       if (bytes < budget) break;
     }
   } catch (e) {
+    dbg("downscaleError", e.message);
     return scanError(e.message);
   }
   if (images.reduce((n,d) => n + d.length * 0.75, 0) >= budget) {
     return scanError(`Those ${pics.length} pages are too large to send together. Try scanning two or three at a time.`);
   }
 
-  let res, data;
+  const payload = JSON.stringify({ images });
+  dbg("upload", `${images.length} image(s), ${(payload.length/1048576).toFixed(2)}MB body`);
+
+  let res, data, raw = "";
   try {
     res = await fetch(`${API_BASE}/api/extract`, {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ images })
+      body: payload
     });
-    data = await res.json();
-  } catch {
-    return scanError("Couldn't reach the server. Check your connection and try again.");
+    dbg("status", `HTTP ${res.status} after ${((Date.now()-t0)/1000).toFixed(1)}s`);
+    raw = await res.text();
+    try { data = JSON.parse(raw); }
+    catch { dbg("parseError", raw.slice(0,200) || "(empty response)"); }
+  } catch (e) {
+    dbg("networkError", `${e.name}: ${e.message}`);
+    return scanError(
+      "Couldn't reach the scanning service. If you're running this locally, make sure " +
+      "\"npm run dev\" is still running in your terminal."
+    );
   }
 
   /* A 404 means the page loaded but the function isn't there — a static host
@@ -1059,8 +1117,11 @@ async function runScan(files){
     );
   }
   if (!res.ok || !data || !Array.isArray(data.cards)) {
-    return scanError((data && data.error) || `The server returned an error (${res.status}).`);
+    if (data && data.error) dbg("serverError", data.error);
+    return scanError((data && data.error) || `The server returned an error (HTTP ${res.status}).`);
   }
+  dbg("model", data.model || "(not reported)");
+  dbg("cards", data.cards.length);
 
   draft = {
     deckName: data.deckName || "Scanned notes",

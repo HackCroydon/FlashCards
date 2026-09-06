@@ -137,3 +137,32 @@ failing the upload.
 
 A best-effort per-IP burst limit lives in the function, but serverless
 instances are ephemeral so the real ceiling is your Gemini quota.
+
+## When scanning doesn't work
+
+**Open `/api/health` in a browser.** It answers, in order, the things that
+actually go wrong: is the function running, is `GEMINI_API_KEY` set, is the key
+valid, and which models are reachable. It never returns the key itself.
+
+Add `?probe=1` to spend one real request proving generation works end to end
+(this costs daily quota, so it's opt-in).
+
+```
+/api/health          -> is the key set and valid?
+/api/health?probe=1  -> does generation actually work right now?
+```
+
+Typical answers:
+
+| `hint` says | What to do |
+|---|---|
+| `GEMINI_API_KEY is not set` | Add the env var, then **redeploy** — Vercel only applies env vars to new builds |
+| `The key was rejected` | Key is invalid, revoked, or restricted. Make a fresh one |
+| `Daily free quota is used up` | Free tier is ~20 requests/day/model. Wait, or enable billing |
+| `Gemini is returning 503` | Upstream demand. Retry shortly |
+| `Everything checks out` | Server is fine — the problem is in the browser. Check the page is served over http(s), not opened as a file |
+
+In the app itself, any scan failure now has a **Show technical details** button
+listing the page URL, the endpoint it called, file sizes, the downscaled upload
+size, the HTTP status, timing and the server's own error message — with **Copy
+details** next to it. The same trace goes to the browser console under `[scan]`.

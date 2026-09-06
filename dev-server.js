@@ -17,7 +17,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(HERE, "public");
 const PORT = Number(process.env.PORT) || 3000;
 
-const { default: handler } = await import(pathToFileURL(join(HERE, "api", "extract.js")).href);
+const ROUTES = {
+  "/api/extract": (await import(pathToFileURL(join(HERE, "api", "extract.js")).href)).default,
+  "/api/health": (await import(pathToFileURL(join(HERE, "api", "health.js")).href)).default,
+};
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -41,12 +44,14 @@ if (!process.env.GEMINI_API_KEY) {
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
-  if (url.pathname === "/api/extract") {
+  const route = ROUTES[url.pathname];
+  if (route) {
     let raw = "";
     try {
       for await (const chunk of req) raw += chunk;
     } catch { /* client hung up */ }
     req.body = raw ? JSON.parse(raw) : {};
+    req.query = Object.fromEntries(url.searchParams);
 
     // Minimal stand-in for the response object Vercel hands the function.
     const shim = {
@@ -62,12 +67,12 @@ createServer(async (req, res) => {
 
     const started = Date.now();
     try {
-      await handler(req, shim);
+      await route(req, shim);
     } catch (e) {
       console.error("  handler threw:", e);
       if (!res.writableEnded) { res.statusCode = 500; res.end('{"error":"Server error."}'); }
     }
-    console.log(`  POST /api/extract -> ${res.statusCode} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+    console.log(`  ${req.method} ${url.pathname} -> ${res.statusCode} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
     return;
   }
 
