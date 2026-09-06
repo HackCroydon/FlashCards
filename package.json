@@ -1,0 +1,11 @@
+{
+  "name": "flashcards",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Study Deck — flashcards, with decks generated from photos of your notes",
+  "scripts": {
+    "dev": "vercel dev",
+    "test:extract": "node test/extract.test.js"
+  }
+}

@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Study Deck</title>
+<style>
+  :root{
+    --bio:#93C07E;
+    --math:#E5A45E;
+    --accent:var(--bio);
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --ease:cubic-bezier(.22,.7,.25,1);
+    --r:16px;
+  }
+  html[data-theme="dark"]{
+    --canvas:#140F0D;
+    --surface:#1F1917;
+    --raise:#2A2220;
+    --line:#3A2E28;
+    --line-soft:#2E2521;
+    --ink:#F6ECE1;
+    --ink-2:#CDBBAC;
+    --muted:#968175;
+    --shadow:0 2px 6px rgba(0,0,0,.35),0 18px 40px rgba(0,0,0,.4);
+    --lift:0 10px 30px rgba(0,0,0,.45);
+    --grain:.05;
+    --wash-1:rgba(229,164,94,.16);
+    --wash-2:rgba(147,192,126,.13);
+    --sheen:rgba(255,255,255,.05);
+    --onAccent:#171110;
+  }
+  html[data-theme="light"]{
+    --canvas:#F7F0E7;
+    --surface:#FFFCF8;
+    --raise:#F3EADF;
+    --line:#E6D8C7;
+    --line-soft:#EFE5D8;
+    --ink:#2A211A;
+    --ink-2:#5E4C3E;
+    --muted:#8D7A6A;
+    --bio:#4F7C48;
+    --math:#B4702B;
+    --shadow:0 1px 3px rgba(80,52,26,.07),0 14px 32px rgba(80,52,26,.09);
+    --lift:0 12px 26px rgba(80,52,26,.13);
+    --grain:.035;
+    --wash-1:rgba(214,150,74,.20);
+    --wash-2:rgba(120,160,105,.16);
+    --sheen:rgba(255,255,255,.55);
+    --onAccent:#FFFDF9;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--canvas);color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;min-height:100vh;position:relative;overflow-x:hidden;
+    display:flex;justify-content:center;
+    padding:0 18px calc(40px + env(safe-area-inset-bottom));
+    transition:background .4s var(--ease),color .4s var(--ease);
+  }
+  /* warm drifting light */
+  body::before{
+    content:"";position:fixed;inset:-25% -25% auto -25%;height:85vh;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(42% 55% at 78% 12%,var(--wash-1),transparent 70%),
+      radial-gradient(45% 50% at 18% 4%,var(--wash-2),transparent 72%);
+    filter:blur(14px);animation:drift 26s ease-in-out infinite alternate;
+  }
+  @keyframes drift{
+    0%{transform:translate3d(0,0,0) scale(1)}
+    50%{transform:translate3d(2%,2%,0) scale(1.06)}
+    100%{transform:translate3d(-2%,1%,0) scale(1.02)}
+  }
+  /* paper grain */
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:var(--grain);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .app{width:100%;max-width:660px;position:relative;z-index:2}
+
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes pop{from{opacity:0;transform:scale(.97) translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
+  .rise{animation:rise .5s var(--ease) backwards}
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    display:flex;align-items:center;gap:13px;
+    padding:calc(30px + env(safe-area-inset-top)) 0 22px;animation:rise .5s var(--ease) backwards;
+  }
+  .mark{
+    width:40px;height:40px;border-radius:13px;flex:none;display:grid;place-items:center;
+    background:linear-gradient(150deg,var(--bio),var(--math));box-shadow:var(--shadow);
+    transition:transform .5s var(--ease);
+  }
+  .mark:hover{transform:rotate(-6deg) scale(1.05)}
+  .mark svg{display:block}
+  .brand h1{margin:0;font-size:20px;font-weight:650;letter-spacing:-.02em}
+  .brand p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
+  .masthead .icon-btn{margin-left:auto}
+  .icon-btn{
+    width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--surface);
+    color:var(--ink-2);font-size:15px;cursor:pointer;display:grid;place-items:center;flex:none;
+    transition:transform .2s var(--ease),background .25s,color .25s,border-color .25s;
+  }
+  .icon-btn:hover{background:var(--raise);color:var(--ink);border-color:var(--accent)}
+  .icon-btn:active{transform:scale(.9)}
+
+  /* ---------- stats ---------- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:24px}
+  .stat{
+    background:var(--surface);border:1px solid var(--line-soft);border-radius:13px;
+    padding:12px 10px;text-align:center;transition:transform .25s var(--ease),border-color .25s;
+  }
+  .stat:hover{transform:translateY(-2px);border-color:var(--line)}
+  .stat b{display:block;font-size:19px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .stat span{display:block;font-size:10.5px;color:var(--muted);margin-top:3px;letter-spacing:.02em}
+
+  /* ---------- panels ---------- */
+  .panel{display:block;margin-bottom:26px}
+  .panel-head{display:flex;align-items:center;gap:9px;margin-bottom:12px;padding:0 2px}
+  .pip{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  .panel-head h2{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .panel-head .n{font-size:12px;color:var(--muted)}
+  .panel-head .add{
+    margin-left:auto;background:none;border:1px solid var(--line-soft);color:var(--muted);
+    font-family:var(--sans);font-size:12.5px;padding:6px 11px;border-radius:100px;cursor:pointer;
+    transition:color .25s,border-color .25s,background .25s;
+  }
+  .panel-head .add:hover{color:var(--accent);border-color:var(--accent);background:var(--surface)}
+  .grid{display:grid;grid-template-columns:1fr;gap:10px}
+  @media(min-width:560px){.grid{grid-template-columns:1fr 1fr}}
+
+  .deck{
+    position:relative;overflow:hidden;text-align:left;background:var(--surface);
+    border:1px solid var(--line-soft);border-radius:var(--r);padding:16px;cursor:pointer;
+    color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;gap:10px;
+    animation:rise .5s var(--ease) backwards;
+    transition:transform .3s var(--ease),border-color .3s,box-shadow .3s;
+  }
+  .deck::after{
+    content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;pointer-events:none;
+    background:linear-gradient(100deg,transparent,var(--sheen),transparent);
+    transform:skewX(-14deg);transition:left .65s var(--ease);
+  }
+  .deck:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:var(--lift)}
+  .deck:hover::after{left:120%}
+  .deck-top{display:flex;align-items:center;gap:12px}
+  .deck .title{font-size:15.5px;font-weight:550;letter-spacing:-.01em;line-height:1.3}
+  .deck .meta{font-size:12.5px;color:var(--muted);line-height:1.5;font-variant-numeric:tabular-nums}
+  .deck .go{
+    font-size:12.5px;color:var(--accent);display:flex;align-items:center;gap:6px;margin-top:auto;
+  }
+  .deck .go em{font-style:normal;transition:transform .3s var(--ease)}
+  .deck:hover .go em{transform:translateX(5px)}
+  .ring{
+    flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;
+    background:conic-gradient(var(--accent) var(--p,0%),var(--line-soft) 0);
+    transition:background .8s var(--ease);
+  }
+  .ring i{
+    background:var(--surface);width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
+    font-style:normal;font-size:11px;font-weight:600;color:var(--accent);
+  }
+  .empty{
+    grid-column:1/-1;border:1px dashed var(--line);border-radius:var(--r);padding:18px;
+    font-size:13.5px;line-height:1.55;color:var(--muted);background:transparent;
+  }
+  .footnote{text-align:center;font-size:12px;color:var(--muted);margin:6px 0 0;opacity:.8}
+
+  /* ---------- study ---------- */
+  #study{animation:fadein .35s ease both}
+  .bar{display:flex;align-items:center;gap:10px;padding:calc(26px + env(safe-area-inset-top)) 0 16px}
+  .back{
+    background:none;border:1px solid var(--line-soft);color:var(--muted);font-size:13px;cursor:pointer;
+    font-family:var(--sans);padding:7px 13px;border-radius:100px;transition:color .25s,border-color .25s;
+  }
+  .back:hover{color:var(--ink);border-color:var(--line)}
+  .deckname{font-size:13.5px;font-weight:550;color:var(--ink-2);flex:1;text-align:right;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line-soft);
+    border-radius:13px;padding:4px;margin-bottom:14px}
+  .seg button{
+    flex:1;border:0;background:none;color:var(--muted);font-family:var(--sans);font-size:13.5px;
+    font-weight:550;padding:10px;border-radius:10px;cursor:pointer;
+    transition:background .3s var(--ease),color .3s var(--ease),box-shadow .3s;
+  }
+  .seg button.on{background:var(--raise);color:var(--ink);box-shadow:0 1px 0 var(--line-soft)}
+  .track{height:4px;background:var(--line-soft);border-radius:4px;overflow:hidden;margin-bottom:8px}
+  .fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--math));width:0;border-radius:4px;
+    transition:width .45s var(--ease)}
+  .status{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted);margin-bottom:16px;
+    font-variant-numeric:tabular-nums}
+  .status .star{
+    margin-left:auto;background:none;border:0;color:var(--muted);font-size:13px;cursor:pointer;
+    font-family:var(--sans);padding:4px 8px;border-radius:8px;
+    transition:color .25s,transform .2s var(--ease)}
+  .status .star.on{color:var(--math)}
+  .status .star:active{transform:scale(.86)}
+
+  .stage{perspective:1800px;margin-bottom:16px;touch-action:pan-y}
+  .card{position:relative;width:100%;min-height:340px;transform-style:preserve-3d;cursor:pointer;
+    transition:transform .5s var(--ease)}
+  .card.flipped{transform:rotateY(180deg)}
+  .card.in{animation:pop .4s var(--ease) backwards}
+  .card.exit-left{animation:offL .26s var(--ease) both}
+  .card.exit-right{animation:offR .26s var(--ease) both}
+  @keyframes offL{to{opacity:0;transform:translateX(-30px) rotate(-2.5deg)}}
+  @keyframes offR{to{opacity:0;transform:translateX(30px) rotate(2.5deg)}}
+  .face{
+    position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    background:linear-gradient(165deg,var(--surface),var(--raise));
+    border:1px solid var(--line-soft);border-radius:20px;padding:26px;
+    display:flex;flex-direction:column;box-shadow:var(--shadow);
+  }
+  .face.back{transform:rotateY(180deg);background:linear-gradient(165deg,var(--raise),var(--surface))}
+  .label{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:auto;
+    letter-spacing:.03em;text-transform:uppercase}
+  .label b{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  .face p{margin:0;font-size:21px;line-height:1.42;font-weight:520;letter-spacing:-.01em}
+  .face.back p{font-size:19.5px;font-weight:400;color:var(--ink-2);line-height:1.5}
+  .face .foot{margin-top:auto;font-size:11.5px;color:var(--muted);opacity:.7}
+
+  /* ---------- quiz ---------- */
+  .qcard{
+    background:linear-gradient(165deg,var(--surface),var(--raise));border:1px solid var(--line-soft);
+    border-radius:20px;padding:24px;box-shadow:var(--shadow);margin-bottom:16px;
+    animation:pop .36s var(--ease) backwards;
+  }
+  .qcard .label{margin-bottom:13px}
+  .qcard p{margin:0;font-size:19.5px;line-height:1.4;font-weight:520;letter-spacing:-.01em}
+  .opt{
+    display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line-soft);
+    border-radius:13px;padding:14px 15px;margin-bottom:9px;color:var(--ink-2);
+    font-family:var(--sans);font-size:15px;line-height:1.4;cursor:pointer;position:relative;
+    animation:rise .38s var(--ease) backwards;
+    transition:transform .2s var(--ease),background .25s,border-color .25s,color .25s,box-shadow .25s;
+  }
+  .opt:hover:not(:disabled){background:var(--raise);color:var(--ink);transform:translateX(4px);border-color:var(--line)}
+  .opt:disabled{cursor:default;opacity:.7}
+  .opt .k{color:var(--muted);font-size:12.5px;margin-right:10px;font-variant-numeric:tabular-nums}
+  .opt.right{border-color:var(--bio);box-shadow:inset 0 0 0 1px var(--bio),0 6px 18px rgba(147,192,126,.18);color:var(--ink);opacity:1}
+  .opt.wrong{border-color:#C4614E;box-shadow:inset 0 0 0 1px #C4614E;color:var(--ink);opacity:1;
+    animation:shake .34s var(--ease)}
+  @keyframes shake{20%{transform:translateX(-7px)}45%{transform:translateX(6px)}70%{transform:translateX(-3px)}100%{transform:none}}
+  .feed{min-height:22px;font-size:13.5px;color:var(--ink-2);margin:6px 0 14px;animation:fadein .3s ease both}
+  .feed.ok{color:var(--bio)}
+
+  .hint{text-align:center;font-size:12px;color:var(--muted);margin:0 0 16px;opacity:.85}
+  .row{display:flex;gap:9px}
+  .row+.row{margin-top:9px}
+  button.act{
+    flex:1;padding:14px 10px;border-radius:13px;border:1px solid var(--line-soft);background:var(--surface);
+    color:var(--ink-2);font-size:14.5px;font-weight:550;font-family:var(--sans);cursor:pointer;
+    transition:transform .18s var(--ease),background .25s,color .25s,border-color .25s,box-shadow .25s;
+  }
+  button.act:hover{background:var(--raise);color:var(--ink);border-color:var(--line)}
+  button.act:active{transform:scale(.97)}
+  button.act.primary{
+    background:linear-gradient(150deg,var(--accent),var(--math));border-color:transparent;
+    color:var(--onAccent);box-shadow:0 8px 22px rgba(0,0,0,.22);
+  }
+  button.act.primary:hover{filter:brightness(1.06);color:var(--onAccent)}
+  button.act.ghost{border-color:transparent;background:none;color:var(--muted)}
+  button.act.ghost:hover{background:var(--raise)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+  .done{
+    background:linear-gradient(165deg,var(--surface),var(--raise));border:1px solid var(--line-soft);
+    border-radius:20px;padding:30px 22px;text-align:center;box-shadow:var(--shadow);
+    animation:pop .42s var(--ease) both;
+  }
+  .score{font-size:42px;font-weight:650;letter-spacing:-.03em;margin:0 0 8px;font-variant-numeric:tabular-nums;
+    background:linear-gradient(150deg,var(--accent),var(--math));-webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent}
+  .done h3{font-size:17px;font-weight:600;margin:0 0 6px}
+  .done p{color:var(--muted);font-size:14px;margin:0 0 20px;line-height:1.55}
+  .mrow{text-align:left;border-top:1px solid var(--line-soft);padding:12px 0;font-size:13.5px;line-height:1.45}
+  .mrow span{display:block;color:var(--ink-2)}
+  .mrow em{display:block;color:var(--accent);font-style:normal;margin-top:3px}
+  #missedList{margin-bottom:18px}
+
+  /* ---------- modal ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(12,8,6,.6);backdrop-filter:blur(4px);
+    display:grid;place-items:center;padding:20px;z-index:20;animation:fadein .22s ease both}
+  .modal{width:100%;max-width:430px;background:var(--surface);border:1px solid var(--line);
+    border-radius:20px;padding:22px;box-shadow:var(--shadow);animation:pop .32s var(--ease) both}
+  .modal h3{margin:0 0 15px;font-size:16.5px;font-weight:600}
+  .modal label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+  .modal input,.modal textarea{
+    width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:11px;
+    color:var(--ink);font-family:var(--sans);font-size:15px;padding:12px;margin-bottom:14px;
+    transition:border-color .25s,box-shadow .25s;
+  }
+  .modal textarea{resize:vertical;min-height:74px;line-height:1.45}
+  .modal input:focus,.modal textarea:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(147,192,126,.15)}
+
+  .toast{
+    position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    background:var(--raise);color:var(--ink);border:1px solid var(--line);border-radius:100px;
+    padding:11px 19px;font-size:13.5px;box-shadow:var(--shadow);z-index:30;animation:pop .3s var(--ease) both}
+  .hide{display:none}
+
+  /* ---------- scan notes ---------- */
+  .scan{
+    width:100%;display:flex;align-items:center;gap:14px;text-align:left;
+    background:var(--surface);border:1px dashed var(--line);border-radius:var(--r);
+    padding:16px 17px;margin-bottom:26px;cursor:pointer;font-family:var(--sans);color:var(--ink);
+    animation:rise .5s var(--ease) backwards;
+    transition:transform .25s var(--ease),border-color .25s,background .25s,box-shadow .25s;
+  }
+  .scan:hover{border-color:var(--accent);background:var(--raise);transform:translateY(-2px);box-shadow:var(--lift)}
+  .scan:active{transform:scale(.99)}
+  .scan.drag{border-color:var(--accent);background:var(--raise);border-style:solid}
+  .scan .lens{
+    width:42px;height:42px;border-radius:13px;flex:none;display:grid;place-items:center;
+    background:linear-gradient(150deg,var(--bio),var(--math));box-shadow:var(--shadow);
+  }
+  .scan .txt{flex:1;min-width:0}
+  .scan .txt b{display:block;font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+  .scan .txt span{display:block;font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .scan .go{color:var(--muted);font-size:18px;flex:none;transition:transform .25s var(--ease),color .25s}
+  .scan:hover .go{transform:translateX(3px);color:var(--accent)}
+
+  /* working state */
+  .working{text-align:center;padding:34px 20px}
+  .orbit{width:46px;height:46px;margin:0 auto 18px;position:relative}
+  .orbit i{
+    position:absolute;inset:0;border-radius:50%;border:2px solid transparent;
+    border-top-color:var(--accent);animation:spin 1s linear infinite;
+  }
+  .orbit i:nth-child(2){inset:7px;border-top-color:var(--math);animation-duration:1.5s;animation-direction:reverse}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .working h3{margin:0 0 7px;font-size:16px;font-weight:600}
+  .working p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.55}
+
+  /* review generated cards */
+  .rhead{
+    background:linear-gradient(165deg,var(--surface),var(--raise));border:1px solid var(--line-soft);
+    border-radius:var(--r);padding:18px;margin-bottom:16px;box-shadow:var(--shadow);
+    animation:pop .4s var(--ease) both;
+  }
+  .rhead h3{margin:0 0 4px;font-size:16.5px;font-weight:600;letter-spacing:-.02em}
+  .rhead .sub{margin:0 0 15px;color:var(--muted);font-size:12.5px;line-height:1.5}
+  .rhead label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+  .rhead input,.rhead select{
+    width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:11px;
+    color:var(--ink);font-family:var(--sans);font-size:14.5px;padding:11px;margin-bottom:12px;
+  }
+  .rhead input:focus,.rhead select:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(147,192,126,.15)}
+  .rhead .pair{display:flex;gap:10px}
+  .rhead .pair>div{flex:1;min-width:0}
+
+  .rcard{
+    background:var(--surface);border:1px solid var(--line-soft);border-radius:14px;
+    padding:13px 14px;margin-bottom:9px;animation:rise .4s var(--ease) backwards;
+    transition:border-color .25s,opacity .25s,background .25s;
+  }
+  .rcard.off{opacity:.42;background:none}
+  .rcard .top{display:flex;align-items:flex-start;gap:11px}
+  .rcard .tick{
+    width:21px;height:21px;border-radius:7px;border:1px solid var(--line);background:var(--canvas);
+    flex:none;cursor:pointer;display:grid;place-items:center;margin-top:1px;
+    color:transparent;font-size:12px;transition:background .2s,border-color .2s,color .2s;
+  }
+  .rcard:not(.off) .tick{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}
+  .rcard .body{flex:1;min-width:0}
+  .rcard .q{font-size:14px;font-weight:550;line-height:1.45;margin:0}
+  .rcard .a{font-size:13.5px;color:var(--ink-2);line-height:1.45;margin:5px 0 0}
+  .rcard .tag{
+    display:inline-block;margin-top:8px;font-size:10.5px;color:var(--muted);
+    border:1px solid var(--line-soft);border-radius:100px;padding:2px 9px;letter-spacing:.02em;
+  }
+  .rcard .edit{
+    background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;
+    font-family:var(--sans);padding:4px 6px;border-radius:8px;flex:none;transition:color .2s,background .2s;
+  }
+  .rcard .edit:hover{color:var(--accent);background:var(--raise)}
+  .rcount{font-size:12.5px;color:var(--muted);margin:0 0 12px;padding:0 2px}
+  .rwarn{
+    background:var(--raise);border:1px solid var(--line);border-left:3px solid var(--math);
+    border-radius:11px;padding:11px 13px;font-size:12.5px;color:var(--ink-2);
+    line-height:1.5;margin-bottom:16px;
+  }
+  .rfoot{position:sticky;bottom:0;padding:14px 0 calc(6px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top,var(--canvas) 62%,transparent)}
+
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HOME -->
+  <section id="home">
+    <div class="masthead">
+      <span class="mark">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+          <rect x="3.2" y="6.4" width="12.4" height="14.4" rx="2.6" fill="rgba(20,15,13,.32)"/>
+          <rect x="7.6" y="3.2" width="13.2" height="15.2" rx="2.8" fill="#fff" fill-opacity=".92"/>
+          <path d="M10.8 8.2h6.8M10.8 11.4h6.8M10.8 14.6h4" stroke="#2A2220" stroke-opacity=".55" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <div class="brand">
+        <h1>Study Deck</h1>
+        <p>Biology &amp; math, one card at a time</p>
+      </div>
+      <button class="icon-btn" id="btnTheme" aria-label="Switch theme">◐</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <button class="scan" id="btnScan">
+      <span class="lens">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+          <path d="M4 9V6.2A2.2 2.2 0 0 1 6.2 4H9M15 4h2.8A2.2 2.2 0 0 1 20 6.2V9M20 15v2.8a2.2 2.2 0 0 1-2.2 2.2H15M9 20H6.2A2.2 2.2 0 0 1 4 17.8V15"
+            stroke="#fff" stroke-opacity=".95" stroke-width="1.7" stroke-linecap="round"/>
+          <path d="M8 12h8" stroke="#fff" stroke-opacity=".95" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="txt">
+        <b>Scan your notes</b>
+        <span>Photograph a page and Gemini turns it into a deck</span>
+      </span>
+      <span class="go">&rarr;</span>
+    </button>
+    <input type="file" id="scanInput" accept="image/*" multiple class="hide">
+
+    <div id="panels"></div>
+    <p class="footnote">Everything you make stays in this browser.</p>
+  </section>
+
+  <!-- REVIEW SCANNED CARDS -->
+  <section id="review" class="hide">
+    <div class="bar">
+      <button class="back" id="btnReviewBack">&larr; Cancel</button>
+      <span class="deckname">Check the cards</span>
+    </div>
+    <div id="reviewBody"></div>
+  </section>
+
+  <!-- STUDY -->
+  <section id="study" class="hide">
+    <div class="bar">
+      <button class="back" id="btnBack">&larr; Decks</button>
+      <span class="deckname" id="deckname"></span>
+      <button class="icon-btn" id="btnFlipMode" title="Swap question and answer">⇄</button>
+    </div>
+    <div class="seg" id="seg">
+      <button data-mode="cards" class="on">Flashcards</button>
+      <button data-mode="quiz">Quiz</button>
+    </div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="status">
+      <span id="count"></span><span id="tag"></span>
+      <button class="star" id="btnStar">☆ Star</button>
+    </div>
+
+    <div id="cardWrap">
+      <div class="stage">
+        <div class="card in" id="card" tabindex="0" role="button" aria-label="Flip card">
+          <div class="face front">
+            <span class="label"><b></b><span id="frontLabel"></span></span>
+            <p id="q"></p>
+            <span class="foot">Tap to reveal &middot; swipe to answer</span>
+          </div>
+          <div class="face back">
+            <span class="label"><b></b><span id="backLabel"></span></span>
+            <p id="a"></p>
+            <span class="foot">Swipe right if you knew it, left to review</span>
+          </div>
+        </div>
+      </div>
+      <p class="hint" id="hint">Space flips &middot; ← → move &middot; S stars a card</p>
+      <div class="row">
+        <button class="act" id="btnAgain">Review again</button>
+        <button class="act primary" id="btnGot">I knew it</button>
+      </div>
+      <div class="row">
+        <button class="act ghost" id="btnPrev">Previous</button>
+        <button class="act ghost" id="btnShuffle">Reshuffle</button>
+        <button class="act ghost" id="btnAddCard">Add card</button>
+      </div>
+    </div>
+
+    <div id="quizWrap" class="hide">
+      <div class="qcard" id="qcard">
+        <span class="label"><b></b><span id="qLabel">Multiple choice</span></span>
+        <p id="qq"></p>
+      </div>
+      <div id="opts"></div>
+      <p class="feed" id="feed"></p>
+      <div class="row">
+        <button class="act ghost" id="btnSkip">Skip</button>
+        <button class="act primary hide" id="btnNextQ">Next question</button>
+      </div>
+    </div>
+
+    <div id="finish" class="done hide">
+      <p class="score" id="score"></p>
+      <h3 id="finishTitle"></h3>
+      <p id="finishText"></p>
+      <div id="missedList"></div>
+      <div class="row">
+        <button class="act" id="btnRestart">Start over</button>
+        <button class="act primary" id="btnMissed">Review the misses</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="modalHost"></div>
+<div id="toastHost"></div>
+
+<script>
+/* browser storage fallback when running outside Claude */
+if (!window.storage) window.storage = {
+  get: async k => { const v = localStorage.getItem(k); if (v === null) throw new Error("missing"); return {key:k, value:v}; },
+  set: async (k,v) => { localStorage.setItem(k,v); return {key:k, value:v}; },
+  delete: async k => { localStorage.removeItem(k); return {key:k, deleted:true}; },
+  list: async () => ({ keys: Object.keys(localStorage) })
+};
+
+/* ------------------------------------------------------------------
+   BASE DECKS — new decks from your notes get added here.
+------------------------------------------------------------------ */
+const BASE_DECKS = [
+  {
+    id:"bio-macromolecules", subject:"biology",
+    name:"Topic 1 — Macromolecules", note:"Macromolecules of life, carbohydrates",
+    cards:[
+      ["What is a macromolecule?","A large, complex organic molecule.","concept",
+        ["A small inorganic molecule made of only two atoms.","A single sugar subunit.","A charged particle formed when an atom loses an electron.","A short chain of amino acids only."]],
+      ["Why are macromolecules classified as polymers?","Because they are long chains of similar chemical subunits.","concept",
+        ["Because they dissolve easily in water.","Because they are made only of carbon and hydrogen.","Because they contain one repeating atom.","Because they always store energy as fat."]],
+      ["What are the repeating subunits that make up a polymer called?","Monomers.","term",
+        ["Isomers.","Polymers.","Isotopes.","Substrates."]],
+      ["Name the three main classes of macromolecules that make up living things.","Carbohydrates, lipids and proteins.","list",
+        ["Carbohydrates, water and minerals.","Lipids, proteins and vitamins.","Sugars, starches and fibres.","Proteins, enzymes and hormones."]],
+      ["What do all three classes of macromolecules store?","Chemical potential energy.","term",
+        ["Kinetic energy.","Thermal energy.","Light energy.","Electrical charge."]],
+      ["How much more energy per unit do lipids contain compared to carbohydrates and proteins?","2.25 times more.","number",
+        ["1.5 times more.","2 times more.","4 times more.","Half as much."]],
+      ["Which three atoms make up carbohydrates?","Carbon, hydrogen and oxygen.","list",
+        ["Carbon, hydrogen and nitrogen.","Carbon, oxygen and phosphorus.","Hydrogen, oxygen and nitrogen.","Carbon, nitrogen and sulfur."]],
+      ["What is the primary energy source in living things?","Carbohydrates.","term",
+        ["Lipids.","Proteins.","Nucleic acids.","Water."]],
+      ["What are monosaccharides?","The simplest carbohydrates — they consist of a single sugar subunit.","concept",
+        ["Carbohydrates made of two sugar subunits.","Carbohydrates made of many sugar subunits.","Lipids made of a single fatty acid.","The simplest proteins, made of one amino acid."]],
+      ["Give three examples of monosaccharides.","Glucose, galactose and fructose.","list",
+        ["Maltose, lactose and sucrose.","Starch, glycogen and cellulose.","Glucose, maltose and starch.","Fructose, sucrose and cellulose."]],
+      ["What molecular formula do glucose, galactose and fructose share?","C6H12O6.","number",
+        ["C6H10O5.","C12H22O11.","C5H10O5.","CH2O."]],
+      ["Glucose, galactose and fructose are isomers. What does that mean?","They have the same molecular formula (C6H12O6) but their atoms are arranged differently.","concept",
+        ["They have different molecular formulas but the same structure.","They are each made of two sugar subunits joined together.","They have the same number of carbons but different numbers of oxygens.","They turn into each other whenever water is added."]],
+      ["What is a disaccharide?","A simple carbohydrate made of two monosaccharide subunits.","concept",
+        ["A simple carbohydrate made of a single sugar subunit.","A complex carbohydrate made of many sugar subunits.","A lipid made of two fatty acid chains.","Two polysaccharides joined end to end."]],
+      ["Give three examples of disaccharides.","Maltose, lactose and sucrose.","list",
+        ["Glucose, galactose and fructose.","Starch, glycogen and cellulose.","Maltose, glucose and starch.","Lactose, fructose and cellulose."]],
+      ["Which disaccharide is grain sugar?","Maltose.","sugar",
+        ["Lactose.","Sucrose.","Glucose.","Galactose."]],
+      ["Which disaccharide is milk sugar?","Lactose.","sugar",
+        ["Maltose.","Sucrose.","Fructose.","Glycogen."]],
+      ["Which disaccharide is table sugar?","Sucrose.","sugar",
+        ["Maltose.","Lactose.","Glucose.","Starch."]],
+      ["What is a polysaccharide?","A complex carbohydrate made of many monosaccharide subunits.","concept",
+        ["A simple carbohydrate made of a single sugar subunit.","A simple carbohydrate made of two sugar subunits.","A long chain of amino acids.","A large lipid made of many fatty acids."]],
+      ["Which polysaccharide stores energy in plants?","Starch.","sugar",
+        ["Glycogen.","Cellulose.","Sucrose.","Maltose."]],
+      ["Which polysaccharide stores energy in animals?","Glycogen.","sugar",
+        ["Starch.","Cellulose.","Lactose.","Glucose."]],
+      ["Which polysaccharide makes up the cell walls of plant cells?","Cellulose.","sugar",
+        ["Starch.","Glycogen.","Chitin.","Sucrose."]],
+      ["Starch, glycogen and cellulose all belong to which group of carbohydrates?","Polysaccharides.","sugar",
+        ["Monosaccharides.","Disaccharides.","Monomers.","Lipids."]],
+      ["Rank the three carbohydrate types from smallest to largest.","Monosaccharide (1 sugar), disaccharide (2 sugars), polysaccharide (many sugars).","list",
+        ["Disaccharide (2 sugars), monosaccharide (1 sugar), polysaccharide (many sugars).","Polysaccharide (many sugars), disaccharide (2 sugars), monosaccharide (1 sugar).","Monosaccharide (1 sugar), polysaccharide (many sugars), disaccharide (2 sugars).","Monomer, polymer, macromolecule."]]
+    ]
+  }
+];
+
+/* ---------------- state ---------------- */
+const KEY = "flashcards:v2";
+const $ = id => document.getElementById(id);
+let S = { theme:"dark", progress:{}, starred:{}, extras:{}, custom:[], streak:{last:null,days:0} };
+let DECKS = [], deck = null, queue = [], pos = 0, missed = [], lastSeen = null, reverse = false;
+let mode = "cards", quizScore = 0, quizMissed = [], curOpts = [], curCorrect = "", answered = false;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const today = () => new Date().toISOString().slice(0,10);
+
+async function load(){
+  try{ const r = await window.storage.get(KEY); if(r) S = Object.assign(S, JSON.parse(r.value)); }catch(e){}
+  document.documentElement.dataset.theme = S.theme || "dark";
+}
+async function save(){
+  try{ await window.storage.set(KEY, JSON.stringify(S)); }catch(e){}
+}
+function assemble(){
+  DECKS = BASE_DECKS.concat(S.custom || []).map(d => ({
+    ...d, cards: d.cards.concat(S.extras[d.id] || [])
+  }));
+}
+function touchStreak(){
+  const t = today();
+  if (S.streak.last === t) return;
+  const y = new Date(Date.now()-864e5).toISOString().slice(0,10);
+  S.streak = { last:t, days: S.streak.last === y ? S.streak.days + 1 : 1 };
+  save();
+}
+function toast(msg){
+  const el = document.createElement("div");
+  el.className = "toast"; el.textContent = msg;
+  $("toastHost").innerHTML = ""; $("toastHost").appendChild(el);
+  setTimeout(() => el.remove(), 1900);
+}
+
+/* ---------------- home ---------------- */
+function renderHome(){
+  showScreen("home");
+  assemble();
+
+  const totalCards = DECKS.reduce((n,d) => n + d.cards.length, 0);
+  const d = S.streak.days || 0;
+  const avg = (() => {
+    const vals = Object.values(S.best || {});
+    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) + "%" : "—";
+  })();
+  $("stats").innerHTML = [
+    [DECKS.length, DECKS.length === 1 ? "deck" : "decks"],
+    [totalCards, "cards"],
+    [d || "—", d === 1 ? "day streak" : "day streak"],
+    [avg, "best quiz avg"]
+  ].map(([v,l],i) => `<div class="stat rise" style="animation-delay:${i*60}ms">
+      <b>${v}</b><span>${l}</span></div>`).join("");
+
+  const subjects = [["biology","Biology","var(--bio)"],["math","Math","var(--math)"]];
+  $("panels").innerHTML = subjects.map(([key,label,color],si) => {
+    const list = DECKS.filter(x => x.subject === key);
+    const cards = list.map((x,ci) => {
+      const p = S.progress[x.id];
+      const pct = p ? Math.round(p.known / p.total * 100) : 0;
+      const stars = (S.starred[x.id] || []).length;
+      const best = (S.best || {})[x.id];
+      const bits = [`${x.cards.length} cards`];
+      if (p) bits.push(`${p.known}/${p.total} last run`);
+      if (best) bits.push(`best quiz ${best}%`);
+      if (stars) bits.push(`${stars} starred`);
+      return `<button class="deck" data-deck="${x.id}" style="animation-delay:${(si*120)+(ci*70)}ms">
+          <span class="deck-top">
+            <span class="ring" style="--p:${pct}%"><i>${pct}%</i></span>
+            <span class="title">${esc(x.name)}</span>
+          </span>
+          <span class="meta">${bits.join(" &middot; ")}</span>
+          <span class="go">Study <em>&rarr;</em></span>
+        </button>`;
+    }).join("");
+    return `<section class="panel" style="--accent:${color}">
+        <div class="panel-head">
+          <span class="pip"></span><h2>${label}</h2>
+          <span class="n">${list.length} deck${list.length===1?"":"s"}</span>
+          <button class="add" data-new="${key}">+ New deck</button>
+        </div>
+        <div class="grid">${cards || `<div class="empty">Nothing here yet — send a photo of your ${label.toLowerCase()} notes, or start a deck yourself.</div>`}</div>
+      </section>`;
+  }).join("");
+
+  document.querySelectorAll("[data-deck]").forEach(b => b.onclick = () => openDeck(b.dataset.deck));
+  document.querySelectorAll("[data-new]").forEach(b => b.onclick = () => newDeckModal(b.dataset.new));
+}
+
+/* ---------------- study ---------------- */
+const shuffle = a => { a = a.slice();
+  for (let i = a.length-1; i>0; i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a; };
+
+function buildQueue(idx){
+  const q = shuffle(idx);
+  if (q.length > 1 && q[0] === lastSeen) [q[0],q[q.length-1]] = [q[q.length-1],q[0]];
+  return q;
+}
+
+function openDeck(id, only, m){
+  assemble();
+  deck = DECKS.find(d => d.id === id);
+  if (m) mode = m;
+  document.documentElement.style.setProperty("--accent", deck.subject === "math" ? "var(--math)" : "var(--bio)");
+  missed = []; quizMissed = []; quizScore = 0;
+  queue = buildQueue(only || deck.cards.map((_,i)=>i)); pos = 0;
+  $("deckname").textContent = deck.name;
+  showScreen("study");
+  $("finish").classList.add("hide");
+  touchStreak();
+  renderRun();
+}
+
+function renderRun(){
+  const quiz = mode === "quiz";
+  $("cardWrap").classList.toggle("hide", quiz);
+  $("quizWrap").classList.toggle("hide", !quiz);
+  $("btnStar").classList.toggle("hide", quiz);
+  document.querySelectorAll("#seg button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  quiz ? showQuestion() : showCard();
+}
+
+function showCard(){
+  const i = queue[pos]; lastSeen = i;
+  const c = deck.cards[i];
+  const front = reverse ? c[1] : c[0], back = reverse ? c[0] : c[1];
+  const card = $("card");
+  card.classList.remove("flipped","in","exit-left","exit-right");
+  void card.offsetWidth;
+  card.classList.add("in");
+  $("q").textContent = front;
+  $("a").textContent = back;
+  $("frontLabel").textContent = reverse ? "Answer" : (deck.subject === "math" ? "Math" : "Biology");
+  $("backLabel").textContent = reverse ? "Which question?" : "Answer";
+  $("count").textContent = `Card ${pos+1} of ${queue.length}`;
+  $("tag").textContent = missed.length ? `· ${missed.length} to review` : "· shuffled";
+  $("fill").style.width = (pos/queue.length*100)+"%";
+  const starred = (S.starred[deck.id]||[]).includes(i);
+  $("btnStar").className = "star" + (starred ? " on" : "");
+  $("btnStar").textContent = starred ? "★ Starred" : "☆ Star";
+}
+
+function advance(gotIt){
+  const card = $("card");
+  card.classList.add(gotIt ? "exit-right" : "exit-left");
+  if (!gotIt) missed.push(queue[pos]);
+  setTimeout(() => {
+    if (pos < queue.length-1){ pos++; showCard(); } else finish();
+  }, 200);
+}
+
+/* ---------------- quiz ---------------- */
+let lastSets = {}, lastCorrectPos = -1;
+
+const words = t => String(t).toLowerCase().replace(/[^a-z0-9]+/g," ").split(" ").filter(w => w.length > 3);
+
+function similarity(cand, correct, q){
+  let s = 0;
+  const cw = new Set(words(correct)), qw = new Set(words(q));
+  words(cand).forEach(w => { if (cw.has(w)) s += 3; if (qw.has(w)) s += 2; });
+  s += 3 * Math.min(cand.length, correct.length) / Math.max(cand.length, correct.length);
+  if (/\d/.test(cand) === /\d/.test(correct)) s += 1;
+  if ((cand.split(",").length > 1) === (correct.split(",").length > 1)) s += 1;
+  return s;
+}
+
+function pickDistractors(i, correct, prompt){
+  const card = deck.cards[i];
+  const group = card[2];
+  const seen = new Set([correct]);
+  const cands = [];
+
+  // 1. wrong answers written for this exact question (forward direction only)
+  if (!reverse && Array.isArray(card[3])) card[3].forEach(text => {
+    if (seen.has(text)) return;
+    seen.add(text);
+    cands.push({ text, rank: 2, s: 0 });
+  });
+
+  // 2. answers from the same category, then whatever is closest in wording and shape
+  deck.cards.forEach((x,n) => {
+    if (n === i) return;
+    const text = reverse ? x[0] : x[1];
+    if (seen.has(text)) return;
+    seen.add(text);
+    cands.push({ text, rank: (x[2] && x[2] === group) ? 1 : 0, s: similarity(text, correct, prompt) });
+  });
+
+  const ranked = cands.sort((a,b) => (b.rank - a.rank) || (b.s - a.s));
+  const authored = ranked.filter(x => x.rank === 2).length;
+  const pool = ranked.slice(0, authored >= 4 ? authored : Math.max(6, Math.min(8, ranked.length)));
+
+  // rotate: whatever was offered for this card last time goes to the back of the line
+  const key = deck.id + ":" + i + (reverse ? ":r" : "");
+  const prev = lastSets[key] || [];
+  const chosen = shuffle(pool)
+    .sort((a,b) => (prev.includes(a.text) ? 1 : 0) - (prev.includes(b.text) ? 1 : 0))
+    .slice(0,3).map(x => x.text);
+  lastSets[key] = chosen;
+  return chosen;
+}
+
+function showQuestion(){
+  const i = queue[pos]; lastSeen = i; answered = false;
+  const c = deck.cards[i];
+  const prompt = reverse ? c[1] : c[0];
+  curCorrect = reverse ? c[0] : c[1];
+
+  curOpts = shuffle(pickDistractors(i, curCorrect, prompt).concat([curCorrect]));
+  // don't let the right answer sit in the same slot twice in a row
+  const at = curOpts.indexOf(curCorrect);
+  if (curOpts.length > 1 && at === lastCorrectPos){
+    const to = (at + 1 + Math.floor(Math.random() * (curOpts.length - 1))) % curOpts.length;
+    [curOpts[at], curOpts[to]] = [curOpts[to], curOpts[at]];
+  }
+  lastCorrectPos = curOpts.indexOf(curCorrect);
+
+  const qc = $("qcard");
+  qc.style.animation = "none"; void qc.offsetWidth; qc.style.animation = "";
+  $("qq").textContent = prompt;
+  $("qLabel").textContent = reverse ? "Which question fits?" : "Multiple choice";
+  $("opts").innerHTML = curOpts.map((t,n) =>
+    `<button class="opt" data-i="${n}" style="animation-delay:${n*55}ms"><span class="k">${n+1}</span>${esc(t)}</button>`).join("");
+  document.querySelectorAll("#opts .opt").forEach(b => b.onclick = () => answerQuiz(+b.dataset.i));
+  $("feed").textContent = ""; $("feed").className = "feed";
+  $("btnNextQ").classList.add("hide");
+  $("btnSkip").classList.remove("hide");
+  $("count").textContent = `Question ${pos+1} of ${queue.length}`;
+  $("tag").textContent = `· ${quizScore} correct`;
+  $("fill").style.width = (pos/queue.length*100)+"%";
+}
+
+function answerQuiz(n){
+  if (answered) return;
+  answered = true;
+  document.querySelectorAll("#opts .opt").forEach((b,k) => {
+    b.disabled = true;
+    if (curOpts[k] === curCorrect) b.classList.add("right");
+    else if (k === n) b.classList.add("wrong");
+  });
+  const right = curOpts[n] === curCorrect;
+  if (right){ quizScore++; $("feed").textContent = "Correct"; $("feed").className = "feed ok"; }
+  else { quizMissed.push(queue[pos]); $("feed").textContent = "Correct answer: " + curCorrect; }
+  $("tag").textContent = `· ${quizScore} correct`;
+  $("btnSkip").classList.add("hide");
+  $("btnNextQ").classList.remove("hide");
+}
+
+function nextQuestion(){
+  if (!answered) quizMissed.push(queue[pos]);
+  if (pos < queue.length-1){ pos++; showQuestion(); } else finish();
+}
+
+async function finish(){
+  const quiz = mode === "quiz";
+  const miss = quiz ? quizMissed : missed;
+  const total = queue.length;
+  const known = quiz ? quizScore : total - miss.length;
+  $("fill").style.width = "100%";
+  $("cardWrap").classList.add("hide");
+  $("quizWrap").classList.add("hide");
+  $("finish").classList.remove("hide");
+  $("score").textContent = quiz ? `${Math.round(known/total*100)}%` : `${known}/${total}`;
+  $("finishTitle").textContent = miss.length
+    ? (quiz ? `${known} of ${total} correct` : "End of the deck")
+    : (quiz ? "Perfect run" : "Full deck cleared");
+  $("finishText").textContent = miss.length
+    ? `${miss.length} ${quiz ? "question" : "card"}${miss.length===1?"":"s"} to go back over.`
+    : (quiz ? "Every question right. Try it with the answers flipped." : "Every card marked as known.");
+  $("missedList").innerHTML = quiz && miss.length
+    ? miss.map(i => `<div class="mrow"><span>${esc(deck.cards[i][0])}</span><em>${esc(deck.cards[i][1])}</em></div>`).join("")
+    : "";
+  $("btnMissed").classList.toggle("hide", miss.length === 0);
+  S.progress[deck.id] = { known, total };
+  if (quiz){
+    const pct = Math.round(known/total*100);
+    S.best = S.best || {};
+    if (pct > (S.best[deck.id] || 0)){ S.best[deck.id] = pct; if (total > 3) toast("New best quiz score"); }
+  }
+  await save();
+}
+
+function toggleStar(){
+  const i = queue[pos];
+  const arr = S.starred[deck.id] = S.starred[deck.id] || [];
+  const at = arr.indexOf(i);
+  if (at >= 0) arr.splice(at,1); else arr.push(i);
+  save(); showCard();
+}
+
+/* ---------------- modals ---------------- */
+function modal(html, onOk){
+  const host = $("modalHost");
+  host.innerHTML = `<div class="scrim"><div class="modal">${html}
+    <div class="row"><button class="act" id="mCancel">Cancel</button>
+    <button class="act primary" id="mOk">Save</button></div></div></div>`;
+  $("mCancel").onclick = () => host.innerHTML = "";
+  $("mOk").onclick = () => { if (onOk() !== false) host.innerHTML = ""; };
+  host.querySelector(".scrim").onclick = e => { if (e.target.classList.contains("scrim")) host.innerHTML = ""; };
+  setTimeout(() => host.querySelector("input,textarea")?.focus(), 60);
+}
+
+function newDeckModal(subject){
+  modal(`<h3>New ${subject} deck</h3>
+    <label for="dn">Deck name</label><input id="dn" placeholder="e.g. Unit 2 — Quadratics">`,
+    () => {
+      const name = $("dn").value.trim();
+      if (!name) return false;
+      S.custom.push({ id:"c"+Date.now(), subject, name, note:"your deck", cards:[] });
+      save(); renderHome(); toast("Deck created");
+    });
+}
+
+function addCardModal(){
+  modal(`<h3>Add a card</h3>
+    <label for="cq">Question</label><textarea id="cq"></textarea>
+    <label for="ca">Answer</label><textarea id="ca"></textarea>`,
+    () => {
+      const q = $("cq").value.trim(), a = $("ca").value.trim();
+      if (!q || !a) return false;
+      (S.extras[deck.id] = S.extras[deck.id] || []).push([q,a]);
+      save(); assemble();
+      deck = DECKS.find(d => d.id === deck.id);
+      queue.push(deck.cards.length-1);
+      $("count").textContent = `Card ${pos+1} of ${queue.length}`;
+      toast("Card added to this run");
+    });
+}
+
+/* ---------------- events ---------------- */
+$("card").onclick = () => $("card").classList.toggle("flipped");
+$("card").addEventListener("animationend", e => {
+  if (e.animationName === "pop") $("card").classList.remove("in");
+});
+$("btnGot").onclick = () => advance(true);
+$("btnAgain").onclick = () => advance(false);
+$("btnPrev").onclick = () => { if (pos>0){ pos--; showCard(); } };
+$("btnShuffle").onclick = () => {
+  queue = buildQueue(queue); pos = 0; missed = []; quizMissed = []; quizScore = 0;
+  renderRun(); toast(mode === "quiz" ? "New question order" : "Deck reshuffled");
+};
+$("btnBack").onclick = () => renderHome();
+$("btnRestart").onclick = () => openDeck(deck.id);
+$("btnMissed").onclick = () => openDeck(deck.id, (mode === "quiz" ? quizMissed : missed).slice());
+$("btnNextQ").onclick = nextQuestion;
+$("btnSkip").onclick = nextQuestion;
+document.querySelectorAll("#seg button").forEach(b =>
+  b.onclick = () => { if (b.dataset.mode !== mode) openDeck(deck.id, null, b.dataset.mode); });
+$("btnStar").onclick = toggleStar;
+$("btnAddCard").onclick = addCardModal;
+$("btnFlipMode").onclick = () => { reverse = !reverse; renderRun(); toast(reverse ? "Answer shown first" : "Question shown first"); };
+$("btnTheme").onclick = () => {
+  S.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = S.theme; save();
+};
+
+/* ------------------------------------------------------------------
+   SCAN NOTES — photo -> Gemini -> reviewable deck
+   The API key lives on the server, never here.
+------------------------------------------------------------------ */
+
+/* Same origin on Vercel. The GitHub Pages mirror has no /api, so point it
+   at the Vercel deployment — set this once after your first deploy. */
+const VERCEL_API = "";           // e.g. "https://flashcards-hackcroydon.vercel.app"
+const API_BASE = /github\.io$/.test(location.hostname) ? VERCEL_API : "";
+
+const MAX_PAGES = 5;
+let draft = null;   // { deckName, subject, cards:[[q,a,group,distractors]], keep:[bool] }
+
+/* Phone photos are 4000px and 6 MB. Shrink before upload: Gemini reads text
+   fine at this size and it keeps us under the request limit. */
+function downscale(file, maxDim = 1600){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      const cx = cv.getContext("2d");
+      cx.fillStyle = "#fff"; cx.fillRect(0, 0, w, h);   // flatten any alpha
+      cx.drawImage(img, 0, 0, w, h);
+      resolve(cv.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`Could not read ${file.name}.`)); };
+    img.src = url;
+  });
+}
+
+function showScreen(id){
+  ["home","study","review"].forEach(s => $(s).classList.toggle("hide", s !== id));
+  window.scrollTo(0, 0);
+}
+
+function working(title, note){
+  showScreen("review");
+  $("reviewBody").innerHTML = `<div class="done working">
+      <div class="orbit"><i></i><i></i></div>
+      <h3>${esc(title)}</h3><p>${esc(note)}</p>
+    </div>`;
+}
+
+function scanError(msg){
+  showScreen("review");
+  $("reviewBody").innerHTML = `<div class="done">
+      <h3>That didn't work</h3>
+      <p>${esc(msg)}</p>
+      <div class="row">
+        <button class="act" id="seHome">Back to decks</button>
+        <button class="act primary" id="seRetry">Try another photo</button>
+      </div>
+    </div>`;
+  $("seHome").onclick = () => renderHome();
+  $("seRetry").onclick = () => $("scanInput").click();
+}
+
+async function runScan(files){
+  const pics = Array.from(files).filter(f => f.type.startsWith("image/"));
+  if (!pics.length) return scanError("Those weren't image files. Use a photo or screenshot of your notes.");
+  if (pics.length > MAX_PAGES) return scanError(`Up to ${MAX_PAGES} pages at a time — you picked ${pics.length}.`);
+
+  working("Reading your notes…", `${pics.length} page${pics.length===1?"":"s"} · this usually takes 10–30 seconds`);
+
+  let images;
+  try {
+    images = await Promise.all(pics.map(f => downscale(f)));
+  } catch (e) {
+    return scanError(e.message);
+  }
+
+  let res, data;
+  try {
+    res = await fetch(`${API_BASE}/api/extract`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ images })
+    });
+    data = await res.json();
+  } catch {
+    return scanError("Couldn't reach the server. Check your connection and try again.");
+  }
+
+  if (!res.ok || !data || !Array.isArray(data.cards)) {
+    return scanError((data && data.error) || `The server returned an error (${res.status}).`);
+  }
+
+  draft = {
+    deckName: data.deckName || "Scanned notes",
+    subject: data.subject === "math" ? "math" : "biology",
+    cards: data.cards,
+    keep: data.cards.map(() => true),
+    truncated: !!data.truncated
+  };
+  renderReview();
+}
+
+function renderReview(){
+  showScreen("review");
+  const kept = draft.keep.filter(Boolean).length;
+
+  const rows = draft.cards.map((c,i) => {
+    const thin = !Array.isArray(c[3]) || c[3].length < 4;
+    return `<div class="rcard${draft.keep[i] ? "" : " off"}" data-i="${i}" style="animation-delay:${Math.min(i,12)*35}ms">
+        <div class="top">
+          <button class="tick" data-tick="${i}" aria-label="Include this card">✓</button>
+          <div class="body">
+            <p class="q">${esc(c[0])}</p>
+            <p class="a">${esc(c[1])}</p>
+            <span class="tag">${esc(c[2] || "concept")}${thin ? " · few options" : ""}</span>
+          </div>
+          <button class="edit" data-edit="${i}">Edit</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  $("reviewBody").innerHTML = `
+    <div class="rhead">
+      <h3>${draft.cards.length} card${draft.cards.length===1?"":"s"} from your notes</h3>
+      <p class="sub">Gemini can misread handwriting. Skim these before you save — untick anything wrong, tap Edit to fix it.</p>
+      <div class="pair">
+        <div>
+          <label for="rdn">Deck name</label>
+          <input id="rdn" value="${esc(draft.deckName)}" maxlength="60">
+        </div>
+        <div>
+          <label for="rsub">Subject</label>
+          <select id="rsub">
+            <option value="biology"${draft.subject==="biology"?" selected":""}>Biology</option>
+            <option value="math"${draft.subject==="math"?" selected":""}>Math</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    ${draft.truncated ? `<div class="rwarn">These notes were long and Gemini ran out of room, so the last few facts may be missing. Scan the rest as a second deck.</div>` : ""}
+    <p class="rcount" id="rcount">${kept} of ${draft.cards.length} selected</p>
+    ${rows}
+    <div class="rfoot">
+      <div class="row">
+        <button class="act" id="rCancel">Discard</button>
+        <button class="act primary" id="rSave">Save deck</button>
+      </div>
+    </div>`;
+
+  $("reviewBody").querySelectorAll("[data-tick]").forEach(b => b.onclick = () => {
+    const i = +b.dataset.tick;
+    draft.keep[i] = !draft.keep[i];
+    b.closest(".rcard").classList.toggle("off", !draft.keep[i]);
+    $("rcount").textContent = `${draft.keep.filter(Boolean).length} of ${draft.cards.length} selected`;
+  });
+
+  $("reviewBody").querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editDraftCard(+b.dataset.edit));
+
+  $("rCancel").onclick = () => { draft = null; renderHome(); };
+  $("rSave").onclick = saveDraft;
+}
+
+function editDraftCard(i){
+  const c = draft.cards[i];
+  modal(`<h3>Edit card</h3>
+    <label for="eq">Question</label><textarea id="eq">${esc(c[0])}</textarea>
+    <label for="ea">Answer</label><textarea id="ea">${esc(c[1])}</textarea>`,
+    () => {
+      const q = $("eq").value.trim(), a = $("ea").value.trim();
+      if (!q || !a) return false;
+      // Answer changed, so the old wrong options may no longer be wrong.
+      if (a !== c[1] && Array.isArray(c[3])) c[3] = c[3].filter(d => d.toLowerCase() !== a.toLowerCase());
+      c[0] = q; c[1] = a;
+      draft.keep[i] = true;
+      renderReview();
+    });
+}
+
+function saveDraft(){
+  const cards = draft.cards.filter((_,i) => draft.keep[i]);
+  if (!cards.length) return toast("Tick at least one card to save");
+
+  const name = ($("rdn").value.trim() || draft.deckName).slice(0,60);
+  const subject = $("rsub").value === "math" ? "math" : "biology";
+  const id = "c" + Date.now();
+
+  S.custom.push({ id, subject, name, note:"from your notes", cards });
+  save();
+  draft = null;
+  renderHome();
+  toast(`${cards.length} card${cards.length===1?"":"s"} saved`);
+  setTimeout(() => openDeck(id), 260);
+}
+
+/* entry points: click, and drag a photo onto the card */
+$("btnScan").onclick = () => $("scanInput").click();
+$("scanInput").onchange = e => { const f = e.target.files; e.target.value = ""; if (f.length) runScan(f); };
+$("btnReviewBack").onclick = () => { draft = null; renderHome(); };
+
+["dragenter","dragover"].forEach(ev => $("btnScan").addEventListener(ev, e => {
+  e.preventDefault(); $("btnScan").classList.add("drag");
+}));
+["dragleave","drop"].forEach(ev => $("btnScan").addEventListener(ev, e => {
+  e.preventDefault(); $("btnScan").classList.remove("drag");
+}));
+$("btnScan").addEventListener("drop", e => {
+  if (e.dataTransfer?.files?.length) runScan(e.dataTransfer.files);
+});
+
+/* swipe */
+let sx = 0, sy = 0;
+const stage = document.querySelector(".stage");
+stage.addEventListener("touchstart", e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive:true});
+stage.addEventListener("touchend", e => {
+  const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+  if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy)*1.5) advance(dx > 0);
+}, {passive:true});
+
+document.addEventListener("keydown", e => {
+  if ($("modalHost").innerHTML){ if (e.key === "Escape") $("modalHost").innerHTML = ""; return; }
+  if ($("study").classList.contains("hide")) return;
+  if (mode === "quiz"){
+    if (/^[1-4]$/.test(e.key)) answerQuiz(+e.key - 1);
+    if (e.code === "Enter" || e.code === "Space" || e.code === "ArrowRight"){ e.preventDefault(); nextQuestion(); }
+    return;
+  }
+  if (e.code === "Space"){ e.preventDefault(); $("card").classList.toggle("flipped"); }
+  if (e.code === "ArrowRight") advance(true);
+  if (e.code === "ArrowLeft"){ if (pos>0){ pos--; showCard(); } }
+  if (e.key.toLowerCase() === "s") toggleStar();
+});
+
+(async () => { await load(); renderHome(); })();
+</script>
+</body>
+</html>
