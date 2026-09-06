@@ -165,6 +165,78 @@ async function callGemini(model, key, parts, budgetMs = ATTEMPT_TIMEOUT_MS) {
   }
 }
 
+/**
+ * Per-user daily scan cap.
+ *
+ * Sign-up is open, and the Gemini free tier is roughly 20 requests a day in
+ * total, so without a cap the first person to upload a 24-page note set spends
+ * six of them and everyone else is locked out for the day.
+ *
+ * Entirely optional: with no Supabase configured this returns "allowed" and
+ * the app behaves as it always has.
+ */
+const SB_URL = process.env.SUPABASE_URL || "";
+const SB_ANON = process.env.SUPABASE_ANON_KEY || "";
+const SB_SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SCANS_PER_DAY = Number(process.env.SCANS_PER_DAY || 5);
+
+const accountsOn = () => !!(SB_URL && SB_ANON && SB_SERVICE);
+
+/** Verify a Supabase access token and return the user id, or null. */
+async function userFromToken(token) {
+  if (!token) return null;
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/user`, {
+      headers: { apikey: SB_ANON, Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return u?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Count one scan against a user's day.
+ * Returns { allowed, used, remaining } — or allowed:true when accounts are off.
+ * The counting happens in Postgres so two scans started at once cannot both
+ * slip under the limit.
+ */
+async function chargeScan(req) {
+  if (!accountsOn()) return { allowed: true, uncapped: true };
+
+  const auth = req.headers?.authorization || req.headers?.Authorization || "";
+  const token = /^Bearer (.+)$/i.exec(auth)?.[1];
+  const uid = await userFromToken(token);
+
+  // Not signed in: allowed, but on the tighter shared allowance the burst
+  // limiter already applies. Accounts are an offer, not a gate.
+  if (!uid) return { allowed: true, anonymous: true };
+
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/bump_scan_usage`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SB_SERVICE,
+        Authorization: `Bearer ${SB_SERVICE}`,
+      },
+      body: JSON.stringify({ uid, limit_per_day: SCANS_PER_DAY }),
+    });
+    if (!r.ok) {
+      console.error("scan cap RPC failed:", r.status, (await r.text()).slice(0, 300));
+      return { allowed: true, degraded: true };   // never block on our own outage
+    }
+    const rows = await r.json();
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    return { allowed: !!row?.allowed, used: row?.used, remaining: row?.remaining };
+  } catch (e) {
+    console.error("scan cap error:", e?.message);
+    return { allowed: true, degraded: true };
+  }
+}
+
 export default async function handler(req, res) {
   // Same-origin in the Vercel deploy, but the GitHub Pages mirror needs these.
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -206,6 +278,13 @@ export default async function handler(req, res) {
     return bad(res, 413, "Those pages are too large altogether. Try fewer pages at once.");
   }
 
+
+  /* Charge this scan to the signed-in user before spending a Gemini request. */
+  const charged = await chargeScan(req);
+  if (!charged.allowed) {
+    return bad(res, 429,
+      `You have used your ${SCANS_PER_DAY} scans for today. The allowance resets tomorrow.`);
+  }
 
   const steer = [];
   if (subject === "biology" || subject === "math") {

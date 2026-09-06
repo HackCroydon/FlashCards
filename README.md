@@ -61,6 +61,73 @@ silently memorising wrong facts, which is the worst thing a study app can do.
 So every scan lands on a review screen first — untick anything wrong, tap
 **Edit** to fix a question or answer, then save.
 
+## Accounts and sync
+
+Optional. With no Supabase project configured the app behaves exactly as it
+always has: everything lives in `localStorage`, and every feature except sync
+works. The sign-in prompt is an offer, never a wall.
+
+### Setting it up
+
+1. Make a free project at [supabase.com](https://supabase.com).
+2. **SQL Editor** -> paste all of `supabase/schema.sql` -> Run. This creates the
+   tables *and* the Row Level Security policies. Do not skip it or split it.
+3. **Authentication -> Providers -> Email**: on, with "Confirm email" enabled.
+4. **Project Settings -> API**: copy the Project URL and the `anon` key into
+   `SUPABASE_URL` and `SUPABASE_ANON_KEY` near the top of the accounts section
+   in `public/index.html`.
+5. For the per-user scan cap, add these as Vercel environment variables:
+   `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and
+   optionally `SCANS_PER_DAY` (default 5). Then redeploy.
+
+The anon key belongs in the page and is safe there: it identifies the project,
+it does not grant access. **The `service_role` key must never reach the
+browser** - it bypasses Row Level Security entirely and belongs only in a
+server environment variable.
+
+### What keeps one person's decks private
+
+Row Level Security, and nothing else. Every table carries
+`auth.uid() = user_id` on both `using` (reads) and `with check` (writes).
+Both halves are needed: without `with check` someone could write rows owned by
+another user; without `using` they could read them.
+
+### How sync behaves
+
+Last-write-wins per row on `updated_at`. `localStorage` stays the source of
+truth for rendering, so the app is instant and works offline; the network is a
+background concern, debounced about a second after a change and re-run on
+regaining focus.
+
+Deletions are soft (`deleted_at`) and are themselves synced. With hard
+deletes, a phone that was offline when you deleted a deck would re-upload it on
+the next sync and the deck would come back.
+
+**The limitation, stated plainly:** if the *same* deck is edited on two devices
+while one is offline, the older edit is lost. Different decks on different
+devices never conflict, because merging is per row. Proper per-card merging
+needs CRDTs and is not worth it for decks edited by one person.
+
+Signing out never clears local decks. You are returned to what was on that
+device; it must not look like the app deleted your work.
+
+### First sign-in
+
+Whatever is already in the browser is uploaded and becomes the account's decks.
+Deck and card ids are client-generated and stable, which is what makes merging
+by id possible rather than guessing by name.
+
+### Costs of open sign-up
+
+Anyone can register, so the Gemini quota is shared. `/api/extract` charges each
+scan to the signed-in user through an atomic Postgres counter, default 5 scans
+per person per day. Without it the first person to upload a 24-page note set
+spends six of the free tier's ~20 daily requests.
+
+Hosting other people's email addresses is a real obligation. The schema stores
+only email and decks, and `on delete cascade` makes deleting an account one
+statement.
+
 ## Scanning a whole note set
 
 One request cannot carry a whole notebook: Vercel caps the body at 4.5 MB and
