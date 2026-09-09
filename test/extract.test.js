@@ -90,14 +90,31 @@ async function offline() {
   check("keeps the deck name", ok.body.deckName === "Topic 4 — Enzymes");
   check("drops the card with no question", ok.body.cards.length === 3,
     `got ${ok.body.cards.length}`);
-  check("emits [q, a, group, distractors] tuples",
-    Array.isArray(ok.body.cards[0]) && ok.body.cards[0].length === 4 &&
-    ok.body.cards[0][0] === "What is an enzyme?" && ok.body.cards[0][3].length === 4);
+  check("emits [q, a, group, distractors, id, why] tuples",
+    Array.isArray(ok.body.cards[0]) && ok.body.cards[0].length === 6 &&
+    ok.body.cards[0][0] === "What is an enzyme?" && ok.body.cards[0][3].length === 4 &&
+    ok.body.cards[0][4] === null,
+    JSON.stringify(ok.body.cards[0]).slice(0, 80));
   check("strips distractors equal to the answer and dedups",
     JSON.stringify(ok.body.cards[1][3]) === JSON.stringify(["20 C", "45 C", "100 C"]),
     JSON.stringify(ok.body.cards[1][3]));
-  check("card with no usable distractors falls back to a 3-tuple",
-    ok.body.cards[2].length === 3);
+  check("a card with no usable distractors sends null, not an empty list",
+    ok.body.cards[2][3] === null,
+    JSON.stringify(ok.body.cards[2][3]));
+
+  // An explanation that only repeats the answer teaches nothing and would
+  // take up room on the card, so it must be dropped rather than shown.
+  stubGemini({ deckName: "D", subject: "biology", cards: [
+    { question: "Q1", answer: "A real reason.", group: "term", distractors: ["a","b","c","d"],
+      why: "Because the bonds hold the energy until they are broken." },
+    { question: "Q2", answer: "Proteins.", group: "term", distractors: ["a","b","c","d"],
+      why: "Proteins." },
+    { question: "Q3", answer: "Water.", group: "term", distractors: ["a","b","c","d"], why: "" },
+  ]});
+  const wy = await call({ images: [PNG_1PX] });
+  check("keeps a real explanation", /bonds hold the energy/.test(wy.body.cards[0][5] || ""));
+  check("drops an explanation that just restates the answer", wy.body.cards[1][5] === null);
+  check("a missing explanation becomes null", wy.body.cards[2][5] === null);
 
   console.log("\nError mapping");
   stubGemini({ cards: [] });
