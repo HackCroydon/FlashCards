@@ -88,8 +88,14 @@ so it reads as the main thing rather than one deck among many.
 
 Seeding is keyed (`topic1-macromolecules@1`), not conditional on the deck being
 missing. It is offered once and the key is recorded, so editing, renaming or
-deleting it sticks instead of being undone on the next load. Shipping a revised
-edition later means adding a new key.
+deleting it sticks instead of being undone on the next load.
+
+Once-only seeding has a cost: anything added to a starter afterwards never
+reaches people who were seeded earlier. That is what happened with the
+explanations. `upgradeStarters()` closes the gap without undoing anyone: it
+fills in blanks only, matches cards by question text so a reworded card is left
+alone, never overwrites an explanation someone wrote, never re-creates a deck
+that was deleted, and is itself keyed so it runs once.
 
 ## Accounts and sync
 

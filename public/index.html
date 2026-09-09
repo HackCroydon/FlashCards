@@ -1155,6 +1155,49 @@ function seedStarters(){
     added++;
   }
   if (added) save();
+  upgradeStarters();
+}
+
+/**
+ * Improve a starter deck someone already has.
+ *
+ * Seeding is deliberately once-only so that deleting or renaming a starter
+ * sticks. The cost is that anything added to a starter afterwards — the
+ * explanations, for instance — never reaches the people who were seeded
+ * earlier. This closes that gap without undoing anyone's choices:
+ *
+ *   - it only fills in blanks, never overwrites something already there;
+ *   - it matches cards by question text, so an edited card is left alone;
+ *   - it never re-creates a deck that was deleted;
+ *   - each upgrade is keyed and runs once, like the seed itself.
+ */
+function upgradeStarters(){
+  S.seeded = S.seeded || [];
+  let changed = false;
+
+  for (const s of STARTER_DECKS) {
+    const key = s.seed + ":why";
+    if (S.seeded.includes(key)) continue;
+    S.seeded.push(key);
+    changed = true;
+
+    const d = S.decks.find(x => x.id === s.id);
+    if (!d) continue;                       // deleted on purpose; leave it deleted
+
+    const whyByQuestion = new Map(
+      s.cards.filter(c => c[5]).map(c => [String(c[0]).trim().toLowerCase(), c[5]]));
+
+    let filled = 0;
+    for (const c of d.cards) {
+      if (c[5]) continue;                   // an edit of their own always wins
+      const why = whyByQuestion.get(String(c[0]).trim().toLowerCase());
+      if (!why) continue;                   // a card they wrote or reworded
+      c[5] = why;
+      filled++;
+    }
+    if (filled) d.updated_at = nowISO();
+  }
+  if (changed) save();
 }
 
 async function save(){

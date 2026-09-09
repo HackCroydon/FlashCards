@@ -77,6 +77,40 @@ setTimeout(async () => {
          Array.isArray(S.seeded) && S.seeded.length > 0, JSON.stringify(S.seeded));
     }
 
+
+    /* Upgrading a starter someone already has. Keyed seeding is once-only so
+       that deleting a starter sticks, which means anything added to it later
+       never reaches people seeded earlier. The upgrade closes that gap without
+       undoing anyone. */
+    {
+      const before = S.seeded.slice();
+      const target = { id:"topic1-macromolecules" };
+      const d0 = S.decks.find(x => x.id === target.id);
+      const sample = STARTER_DECKS[0];
+
+      // strip explanations and the upgrade key, as an older install would be
+      d0.cards.forEach(c => { c[5] = null; });
+      d0.cards[0][0] = "A question I reworded myself";
+      d0.cards[1][5] = "My own note.";
+      S.seeded = S.seeded.filter(k => !k.endsWith(":why"));
+
+      upgradeStarters();
+
+      ok("an older install gets its explanations backfilled",
+         d0.cards.filter(c => c[5]).length > 60, d0.cards.filter(c => c[5]).length + " filled");
+      ok("a card the user reworded is left alone", d0.cards[0][5] === null);
+      ok("an explanation the user wrote is not overwritten", d0.cards[1][5] === "My own note.");
+      ok("the upgrade records its own key",
+         S.seeded.some(k => k === sample.seed + ":why"));
+
+      // and it must not run a second time
+      d0.cards[2][5] = null;
+      upgradeStarters();
+      ok("the upgrade runs once, not on every load", d0.cards[2][5] === null);
+
+      S.seeded = before;
+    }
+
     // Deleting a card must not repoint a star at its neighbour.
     const d = { id:"dT", cat:S.categories[0].id, name:"T", cards:[
       withId(["Q1","A1","concept",["a","b","c","d"]]),
