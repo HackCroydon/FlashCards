@@ -599,6 +599,17 @@
   }
   .scanning .row{margin-top:16px}
 
+  /* a course deck: pinned to the top of its section and marked */
+  .deckrow{position:relative}
+  .deck.pinned .title{display:flex;align-items:center;gap:7px}
+  .pin{
+    display:inline-grid;place-items:center;flex:none;width:19px;height:19px;border-radius:6px;
+    background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);
+  }
+  .deck.pinned .meta .official{
+    color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+    border-radius:20px;padding:1px 8px;font-size:10.5px;letter-spacing:.02em;
+  }
   @media (max-width:480px){
     .brand h1{font-size:24px}
     .card p{font-size:21px}
@@ -744,61 +755,192 @@ if (!window.storage) window.storage = {
 };
 
 /* ------------------------------------------------------------------
-   BASE DECKS — new decks from your notes get added here.
+   STARTER DECKS
+
+   Built from the Topic 1 handout and the notes written on it, so the
+   answers match what the class was actually taught rather than a
+   textbook's phrasing.
+
+   Seeding is keyed, not conditional on the deck being absent: a starter
+   is added once and never again, so deleting or editing it sticks.
 ------------------------------------------------------------------ */
-const BASE_DECKS = [
+const PIN_SVG = `<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M14.5 2.2 21.8 9.5l-1.6 1.6-1.2-.3-3.4 3.4.5 3.6-1.6 1.6-4.2-4.2-5 5-1.4-1.4 5-5-4.2-4.2 1.6-1.6 3.6.5 3.4-3.4-.3-1.2 1.5-1.7Z"/></svg>`;
+
+const STARTER_DECKS = [
   {
-    id:"bio-macromolecules", subject:"biology",
-    name:"Topic 1 — Macromolecules", note:"Macromolecules of life, carbohydrates",
-    cards:[
-      ["What is a macromolecule?","A large, complex organic molecule.","concept",
-        ["A small inorganic molecule made of only two atoms.","A single sugar subunit.","A charged particle formed when an atom loses an electron.","A short chain of amino acids only."]],
-      ["Why are macromolecules classified as polymers?","Because they are long chains of similar chemical subunits.","concept",
-        ["Because they dissolve easily in water.","Because they are made only of carbon and hydrogen.","Because they contain one repeating atom.","Because they always store energy as fat."]],
-      ["What are the repeating subunits that make up a polymer called?","Monomers.","term",
-        ["Isomers.","Polymers.","Isotopes.","Substrates."]],
-      ["Name the three main classes of macromolecules that make up living things.","Carbohydrates, lipids and proteins.","list",
-        ["Carbohydrates, water and minerals.","Lipids, proteins and vitamins.","Sugars, starches and fibres.","Proteins, enzymes and hormones."]],
-      ["What do all three classes of macromolecules store?","Chemical potential energy.","term",
-        ["Kinetic energy.","Thermal energy.","Light energy.","Electrical charge."]],
-      ["How much more energy per unit do lipids contain compared to carbohydrates and proteins?","2.25 times more.","number",
-        ["1.5 times more.","2 times more.","4 times more.","Half as much."]],
-      ["Which three atoms make up carbohydrates?","Carbon, hydrogen and oxygen.","list",
-        ["Carbon, hydrogen and nitrogen.","Carbon, oxygen and phosphorus.","Hydrogen, oxygen and nitrogen.","Carbon, nitrogen and sulfur."]],
-      ["What is the primary energy source in living things?","Carbohydrates.","term",
-        ["Lipids.","Proteins.","Nucleic acids.","Water."]],
-      ["What are monosaccharides?","The simplest carbohydrates — they consist of a single sugar subunit.","concept",
-        ["Carbohydrates made of two sugar subunits.","Carbohydrates made of many sugar subunits.","Lipids made of a single fatty acid.","The simplest proteins, made of one amino acid."]],
-      ["Give three examples of monosaccharides.","Glucose, galactose and fructose.","list",
-        ["Maltose, lactose and sucrose.","Starch, glycogen and cellulose.","Glucose, maltose and starch.","Fructose, sucrose and cellulose."]],
-      ["What molecular formula do glucose, galactose and fructose share?","C6H12O6.","number",
-        ["C6H10O5.","C12H22O11.","C5H10O5.","CH2O."]],
-      ["Glucose, galactose and fructose are isomers. What does that mean?","They have the same molecular formula (C6H12O6) but their atoms are arranged differently.","concept",
-        ["They have different molecular formulas but the same structure.","They are each made of two sugar subunits joined together.","They have the same number of carbons but different numbers of oxygens.","They turn into each other whenever water is added."]],
-      ["What is a disaccharide?","A simple carbohydrate made of two monosaccharide subunits.","concept",
-        ["A simple carbohydrate made of a single sugar subunit.","A complex carbohydrate made of many sugar subunits.","A lipid made of two fatty acid chains.","Two polysaccharides joined end to end."]],
-      ["Give three examples of disaccharides.","Maltose, lactose and sucrose.","list",
-        ["Glucose, galactose and fructose.","Starch, glycogen and cellulose.","Maltose, glucose and starch.","Lactose, fructose and cellulose."]],
-      ["Which disaccharide is grain sugar?","Maltose.","sugar",
-        ["Lactose.","Sucrose.","Glucose.","Galactose."]],
-      ["Which disaccharide is milk sugar?","Lactose.","sugar",
-        ["Maltose.","Sucrose.","Fructose.","Glycogen."]],
-      ["Which disaccharide is table sugar?","Sucrose.","sugar",
-        ["Maltose.","Lactose.","Glucose.","Starch."]],
-      ["What is a polysaccharide?","A complex carbohydrate made of many monosaccharide subunits.","concept",
-        ["A simple carbohydrate made of a single sugar subunit.","A simple carbohydrate made of two sugar subunits.","A long chain of amino acids.","A large lipid made of many fatty acids."]],
-      ["Which polysaccharide stores energy in plants?","Starch.","sugar",
-        ["Glycogen.","Cellulose.","Sucrose.","Maltose."]],
-      ["Which polysaccharide stores energy in animals?","Glycogen.","sugar",
-        ["Starch.","Cellulose.","Lactose.","Glucose."]],
-      ["Which polysaccharide makes up the cell walls of plant cells?","Cellulose.","sugar",
-        ["Starch.","Glycogen.","Chitin.","Sucrose."]],
-      ["Starch, glycogen and cellulose all belong to which group of carbohydrates?","Polysaccharides.","sugar",
-        ["Monosaccharides.","Disaccharides.","Monomers.","Lipids."]],
-      ["Rank the three carbohydrate types from smallest to largest.","Monosaccharide (1 sugar), disaccharide (2 sugars), polysaccharide (many sugars).","list",
-        ["Disaccharide (2 sugars), monosaccharide (1 sugar), polysaccharide (many sugars).","Polysaccharide (many sugars), disaccharide (2 sugars), monosaccharide (1 sugar).","Monosaccharide (1 sugar), polysaccharide (many sugars), disaccharide (2 sugars).","Monomer, polymer, macromolecule."]]
-    ]
-  }
+    seed: "topic1-macromolecules@1",
+    id: "topic1-macromolecules",
+    cat: "biology",
+    name: "Topic 1 — Macromolecules",
+    note: "Carbohydrates, lipids, proteins, and how polymers are built and broken",
+    cards: [
+      /* ---------- the big picture ---------- */
+      ["What is a macromolecule?", "A large, complex, organic molecule.", "term",
+        ["A small inorganic molecule made of two atoms.", "A single charged particle formed when an atom loses an electron.", "Any molecule that contains only carbon and hydrogen.", "A molecule small enough to cross a membrane unaided."]],
+      ["Why are macromolecules classified as polymers?", "Because they are long chains of similar chemical subunits.", "concept",
+        ["Because they dissolve readily in water.", "Because they are built from only one element.", "Because they always store energy as fat.", "Because they can be split without using enzymes."]],
+      ["What are the repeating subunits that make up a polymer called?", "Monomers.", "term",
+        ["Isomers.", "Isotopes.", "Substrates.", "Polymers."]],
+      ["What does the prefix mono- mean?", "One, a single unit.", "term",
+        ["Many, or multiple units.", "Two units joined together.", "Without water.", "Broken apart."]],
+      ["What does the prefix poly- mean?", "Many, or multiple units.", "term",
+        ["One, a single unit.", "Two units joined together.", "Containing water.", "Joined end to end only once."]],
+      ["Name the three main classes of macromolecules that make up living things.", "Carbohydrates, lipids and proteins.", "list",
+        ["Carbohydrates, water and minerals.", "Lipids, proteins and vitamins.", "Sugars, starches and fibres.", "Proteins, enzymes and hormones."]],
+      ["What do all three classes of macromolecules store?", "Chemical potential energy.", "term",
+        ["Kinetic energy.", "Thermal energy.", "Light energy.", "Electrical charge."]],
+      ["How much more energy per unit do lipids contain than carbohydrates and proteins?", "2.25 times more.", "number",
+        ["1.5 times more.", "2 times more.", "4 times more.", "Half as much."]],
+
+      /* ---------- carbohydrates ---------- */
+      ["Which three elements make up carbohydrates?", "Carbon, hydrogen and oxygen.", "list",
+        ["Carbon, hydrogen and nitrogen.", "Carbon, oxygen and phosphorus.", "Hydrogen, oxygen and nitrogen.", "Carbon, nitrogen and sulfur."]],
+      ["What is the primary energy source in living things?", "Carbohydrates.", "term",
+        ["Lipids.", "Proteins.", "Nucleic acids.", "Water."]],
+      ["Where in a carbohydrate is the energy actually held?", "In the chemical bonds.", "concept",
+        ["In the oxygen atoms alone.", "In the spaces between the molecules.", "In the electrical charge of the molecule.", "In the water surrounding it."]],
+      ["What is a monosaccharide?", "The simplest carbohydrate, consisting of a single sugar subunit.", "concept",
+        ["A carbohydrate made of two sugar subunits.", "A carbohydrate made of many sugar subunits.", "A lipid made of a single fatty acid.", "The simplest protein, made of one amino acid."]],
+      ["Give three examples of monosaccharides.", "Glucose, galactose and fructose.", "list",
+        ["Maltose, lactose and sucrose.", "Starch, glycogen and cellulose.", "Glucose, maltose and starch.", "Fructose, sucrose and cellulose."]],
+      ["What molecular formula do glucose, galactose and fructose share?", "C6H12O6.", "formula",
+        ["C6H10O5.", "C12H22O11.", "C5H10O5.", "CH2O."]],
+      ["Glucose, galactose and fructose are isomers. What does that mean?", "They share the same molecular formula but their atoms are arranged in a different configuration.", "concept",
+        ["They have different formulas but the same structure.", "They are each made of two sugar subunits joined together.", "They have the same number of carbons but different numbers of oxygens.", "They convert into one another whenever water is added."]],
+      ["What is a disaccharide?", "A simple carbohydrate made of two monosaccharide subunits.", "concept",
+        ["A simple carbohydrate made of a single sugar subunit.", "A complex carbohydrate made of many sugar subunits.", "A lipid made of two fatty acid chains.", "Two polysaccharides joined end to end."]],
+      ["Give three examples of disaccharides.", "Maltose, lactose and sucrose.", "list",
+        ["Glucose, galactose and fructose.", "Starch, glycogen and cellulose.", "Maltose, glucose and starch.", "Lactose, fructose and cellulose."]],
+      ["Which disaccharide is grain sugar?", "Maltose.", "sugar",
+        ["Lactose.", "Sucrose.", "Glucose.", "Galactose."]],
+      ["Which disaccharide is milk sugar?", "Lactose.", "sugar",
+        ["Maltose.", "Sucrose.", "Fructose.", "Glycogen."]],
+      ["Which disaccharide is table sugar?", "Sucrose.", "sugar",
+        ["Maltose.", "Lactose.", "Glucose.", "Starch."]],
+      ["Which two monosaccharides join together to make lactose?", "Glucose and galactose.", "sugar",
+        ["Glucose and fructose.", "Two glucose molecules.", "Galactose and fructose.", "Glucose and maltose."]],
+      ["What is lactose intolerance?", "When a person cannot digest, or break apart, the lactose disaccharide.", "concept",
+        ["When a person produces too much lactose in the gut.", "When lactose is absorbed too quickly into the blood.", "An allergy to the protein found in grain sugar.", "When the body converts lactose into starch instead of glucose."]],
+      ["What is a polysaccharide?", "A complex carbohydrate made of many monosaccharide subunits.", "concept",
+        ["A simple carbohydrate made of a single sugar subunit.", "A simple carbohydrate made of two sugar subunits.", "A long chain of amino acids.", "A large lipid made of many fatty acids."]],
+      ["Which polysaccharide stores energy in plants?", "Starch.", "sugar",
+        ["Glycogen.", "Cellulose.", "Sucrose.", "Maltose."]],
+      ["Which polysaccharide stores energy in animals?", "Glycogen.", "sugar",
+        ["Starch.", "Cellulose.", "Lactose.", "Glucose."]],
+      ["Which polysaccharide makes up the cell walls of plant cells?", "Cellulose.", "sugar",
+        ["Starch.", "Glycogen.", "Chitin.", "Sucrose."]],
+      ["What is amylose?", "A polysaccharide form of starch, a chain of roughly 300 to 600 glucose subunits.", "sugar",
+        ["A disaccharide made of glucose and galactose.", "The enzyme that breaks down starch.", "A lipid found in plant cell membranes.", "The monomer that starch is built from."]],
+      ["Rank the three carbohydrate types from smallest to largest.", "Monosaccharide (one sugar), disaccharide (two sugars), polysaccharide (many sugars).", "list",
+        ["Disaccharide, monosaccharide, polysaccharide.", "Polysaccharide, disaccharide, monosaccharide.", "Monosaccharide, polysaccharide, disaccharide.", "Monomer, polymer, macromolecule."]],
+
+      /* ---------- lipids ---------- */
+      ["Which elements make up lipids?", "Primarily carbon, hydrogen and oxygen.", "list",
+        ["Carbon, hydrogen and nitrogen.", "Carbon, nitrogen and phosphorus.", "Hydrogen, oxygen and sulfur.", "Carbon, oxygen and calcium."]],
+      ["Name the main functions of lipids.", "Long-term energy storage, insulation, and forming critical components of hormones and cell membranes.", "list",
+        ["Short-term energy release and oxygen transport.", "Catalysing reactions and clotting blood.", "Carrying genetic information and building ribosomes.", "Neutralising acids and regulating blood pH."]],
+      ["Are lipids polar or nonpolar?", "Nonpolar, with the exception of phospholipids.", "concept",
+        ["Polar, with the exception of steroids.", "Always polar, which is why they dissolve in water.", "Always nonpolar, without exception.", "Neither, because they carry no atoms that bond."]],
+      ["Which type of lipid is the exception to lipids being nonpolar?", "Phospholipids.", "term",
+        ["Steroids.", "Waxes.", "Triglycerides.", "Fatty acids."]],
+      ["Which element do phospholipids contain that other lipids do not?", "Phosphorus.", "term",
+        ["Nitrogen.", "Sulfur.", "Calcium.", "Iron."]],
+      ["Name four different types of lipids.", "Phospholipids, steroids, waxes and triglycerides.", "list",
+        ["Monosaccharides, disaccharides, polysaccharides and starches.", "Amino acids, peptides, polypeptides and enzymes.", "Glucose, glycogen, cellulose and chitin.", "Hormones, enzymes, antibodies and receptors."]],
+      ["What is a triglyceride composed of?", "One glycerol molecule and three fatty acids.", "concept",
+        ["Three glycerol molecules and one fatty acid.", "Two glycerol molecules joined by a peptide bond.", "One glycerol molecule and three amino acids.", "Three fatty acids joined directly to each other."]],
+      ["What are the two parts of a phospholipid?", "A hydrophilic head group and a hydrophobic tail.", "term",
+        ["A hydrophobic head and a hydrophilic tail.", "An amino group and a carboxyl group.", "A glycerol head and a starch tail.", "A polar tail and a polar head."]],
+      ["In a phospholipid bilayer, where do the hydrophobic tails sit?", "Facing inward, away from the water on both sides.", "concept",
+        ["Facing outward into the extracellular fluid.", "Facing outward into the cytoplasm only.", "Randomly, with no consistent arrangement.", "Wrapped around the hydrophilic heads."]],
+      ["What are the two sides of a cell membrane called?", "Extracellular (outside the cell) and intracellular (inside the cell).", "term",
+        ["Hydrophilic and hydrophobic.", "Polar and nonpolar.", "Saturated and unsaturated.", "Anterior and posterior."]],
+      ["Give an example of a steroid.", "Cholesterol.", "term",
+        ["Maltose.", "Glycogen.", "Amylose.", "Glycerol."]],
+      ["Where would you find a waxy cuticle?", "On the surface of leaves.", "term",
+        ["Lining the inside of the small intestine.", "Surrounding the nucleus of an animal cell.", "Inside the cell walls of bacteria.", "Coating the surface of a red blood cell."]],
+      ["What bonds do saturated fatty acids contain?", "Only single bonds between carbon atoms.", "concept",
+        ["One or more double bonds between carbon atoms.", "Only double bonds between carbon atoms.", "Peptide bonds between carbon atoms.", "Hydrogen bonds between carbon atoms."]],
+      ["What are triglycerides with saturated fatty acids called?", "Fats.", "term",
+        ["Oils.", "Waxes.", "Steroids.", "Phospholipids."]],
+      ["What state are fats at room temperature?", "Solid.", "concept",
+        ["Liquid.", "Gas.", "They vary depending on the plant.", "They have no fixed state."]],
+      ["What bonds do unsaturated fatty acids contain?", "One or more double bonds between carbon atoms.", "concept",
+        ["Only single bonds between carbon atoms.", "Only peptide bonds.", "Only hydrogen bonds.", "No bonds between carbon atoms at all."]],
+      ["What are triglycerides with unsaturated fatty acids called?", "Oils.", "term",
+        ["Fats.", "Waxes.", "Steroids.", "Sterols."]],
+      ["What state are oils at room temperature?", "Liquid.", "concept",
+        ["Solid.", "Gas.", "Semi-solid in all cases.", "They have no fixed state."]],
+      ["How are fats and oils similar?", "Both are triglycerides made from glycerol and fatty acids.", "concept",
+        ["Both are polysaccharides made from glucose.", "Both are solid at room temperature.", "Both contain nitrogen.", "Both are built from amino acids."]],
+      ["How are fats and oils different?", "Fats have single bonds and are solid; oils have double bonds and are liquid.", "concept",
+        ["Fats have double bonds and are liquid; oils have single bonds and are solid.", "Fats come from plants and oils come from animals.", "Fats are polar and oils are nonpolar.", "Fats contain glycerol and oils do not."]],
+
+      /* ---------- proteins ---------- */
+      ["Which four elements make up proteins?", "Carbon, hydrogen, oxygen and nitrogen.", "list",
+        ["Carbon, hydrogen and oxygen only.", "Carbon, hydrogen, oxygen and phosphorus.", "Carbon, nitrogen, sulfur and iron.", "Hydrogen, oxygen, nitrogen and calcium."]],
+      ["Which element do proteins contain that carbohydrates and lipids do not?", "Nitrogen.", "term",
+        ["Phosphorus.", "Oxygen.", "Carbon.", "Hydrogen."]],
+      ["What are the monomer subunits of proteins?", "Amino acids.", "term",
+        ["Monosaccharides.", "Fatty acids.", "Nucleotides.", "Glycerol molecules."]],
+      ["What type of bond joins amino acids together?", "Peptide bonds.", "term",
+        ["Glycosidic bonds.", "Hydrogen bonds.", "Ionic bonds.", "Ester bonds."]],
+      ["What is a polypeptide?", "A chain of amino acid subunits joined together by peptide bonds.", "concept",
+        ["A single amino acid before it joins a chain.", "A chain of monosaccharides joined by glycosidic bonds.", "Two fatty acids joined to a glycerol.", "A folded lipid found in the cell membrane."]],
+      ["Name the three parts of an amino acid.", "An amino group, a carboxyl group and an R side chain.", "list",
+        ["A head group, a tail and a glycerol backbone.", "A sugar, a phosphate and a base.", "A carbon ring, a hydroxyl group and a double bond.", "An acid group, a base group and a salt bridge."]],
+      ["What makes one amino acid different from another?", "The R group, or side chain.", "concept",
+        ["The amino group.", "The carboxyl group.", "The number of peptide bonds it can form.", "The central carbon atom."]],
+      ["How does a polypeptide become a protein?", "One or more polypeptides fold into a unique three-dimensional shape.", "process",
+        ["Water is added to break it into amino acids.", "It is coated in a layer of lipid.", "Its peptide bonds are replaced with hydrogen bonds.", "It joins with a monosaccharide chain."]],
+      ["Why is a protein's shape important?", "The shape determines whether the protein can function properly.", "concept",
+        ["The shape decides how much energy the protein stores.", "The shape controls how many amino acids it contains.", "The shape determines the colour of the tissue it builds.", "The shape has no effect once the protein is made."]],
+      ["What determines the type of protein that is made?", "The order and number of amino acids present.", "concept",
+        ["The temperature the protein folded at.", "The number of water molecules released.", "Whether it contains saturated or unsaturated bonds.", "The type of sugar attached to it."]],
+      ["Name five functions of proteins in the human body.", "Cellular transport, blood clotting, immunity, enzyme catalysis and muscle action.", "list",
+        ["Long-term energy storage, insulation and hormone structure.", "Photosynthesis, respiration and fermentation.", "Cell wall support, water storage and pigment production.", "Digestion, excretion and thermoregulation only."]],
+
+      /* ---------- building and breaking polymers ---------- */
+      ["What process forms polymers of organic compounds?", "Dehydration synthesis.", "process",
+        ["Hydrolysis.", "Cellular respiration.", "Photosynthesis.", "Denaturation."]],
+      ["What is another name for dehydration synthesis?", "Condensation.", "term",
+        ["Hydrolysis.", "Catalysis.", "Digestion.", "Oxidation."]],
+      ["What does the word dehydration tell you about dehydration synthesis?", "Water is removed, because a water molecule is produced as each bond forms.", "concept",
+        ["Water is added to break the bonds apart.", "The reaction can only happen in dry conditions.", "The product contains no hydrogen or oxygen.", "Water is used up as a reactant."]],
+      ["In dehydration synthesis, what is produced for each new bond that forms?", "One water molecule.", "process",
+        ["One glucose molecule.", "One carbon dioxide molecule.", "Two water molecules.", "One amino acid."]],
+      ["Which disaccharide forms when two glucose molecules undergo dehydration synthesis?", "Maltose.", "sugar",
+        ["Lactose.", "Sucrose.", "Cellulose.", "Galactose."]],
+      ["What is the molecular formula of maltose?", "C12H22O11.", "formula",
+        ["C6H12O6.", "C12H24O12.", "C6H10O5.", "C11H22O12."]],
+      ["What process breaks polymers of organic compounds down?", "Hydrolysis.", "process",
+        ["Dehydration synthesis.", "Condensation.", "Photosynthesis.", "Polymerisation."]],
+      ["What does lyse mean?", "To break or cut.", "term",
+        ["To join or build.", "To dry out.", "To speed up.", "To fold into shape."]],
+      ["In hydrolysis, what is used to break polymers down into monomers?", "Water.", "process",
+        ["Oxygen.", "Carbon dioxide.", "Glucose.", "Heat alone."]],
+      ["What speeds up hydrolysis reactions?", "Enzymes, which catalyse the reaction.", "term",
+        ["Water, which is used as a reactant.", "Cooling the reaction down.", "Adding more polymer.", "Removing the monomers as they form."]],
+      ["What does it mean when a reaction is catalyzed?", "It is sped up, in living things usually by an enzyme.", "term",
+        ["It is slowed down so it can be controlled.", "It is stopped completely.", "It is reversed to run backwards.", "It releases water instead of using it."]],
+      ["How is water involved in both dehydration synthesis and hydrolysis?", "Dehydration synthesis produces water as bonds form; hydrolysis uses water to break bonds apart.", "concept",
+        ["Both reactions produce water.", "Both reactions use up water.", "Water is a catalyst in both and is not changed.", "Water is only involved in hydrolysis."]],
+      ["What does hydrolysis break a protein down into?", "Amino acids, its monomers.", "process",
+        ["Monosaccharides.", "Fatty acids and glycerol.", "Peptide bonds.", "Nucleotides."]],
+      ["What does hydrolysis break maltose down into?", "Two glucose molecules.", "sugar",
+        ["Glucose and galactose.", "Glucose and fructose.", "Two fructose molecules.", "Starch and water."]],
+
+      /* ---------- putting it to use ---------- */
+      ["What is the main function of carbohydrates in the body?", "Energy, especially for the brain and muscles.", "concept",
+        ["Long-term energy reserve and insulation.", "Muscle growth and repair.", "Carrying oxygen in the blood.", "Forming the cell wall of animal cells."]],
+      ["What is the main function of proteins in the body?", "Muscle growth and muscle action.", "concept",
+        ["Long-term energy storage.", "Providing the body's fastest energy source.", "Insulating the body against heat loss.", "Storing genetic information."]],
+      ["What is the main function of lipids in the body?", "A long-term energy reserve, and insulation.", "concept",
+        ["The body's primary and fastest energy source.", "Building and repairing muscle tissue.", "Catalysing chemical reactions.", "Clotting the blood after an injury."]],
+      ["What is the equation for cellular respiration?", "C6H12O6 + O2 produces CO2 + H2O + energy.", "formula",
+        ["CO2 + H2O produces C6H12O6 + O2.", "C6H12O6 + CO2 produces O2 + H2O.", "O2 + H2O produces C6H12O6 + CO2.", "C12H22O11 + O2 produces CO2 + energy."]],
+    ],
+  },
 ];
 
 /* ---------------- state ----------------
@@ -856,6 +998,7 @@ async function load(){
     await save();
   }
   if (!S.categories.length) S.categories = defaultCategories();
+  seedStarters();
   S.decks = (S.decks || []).map(d => ({ ...d, cards: (d.cards || []).map(withId) }));
   document.documentElement.dataset.theme = S.theme || "dark";
 }
@@ -873,14 +1016,17 @@ function migrate(old){
     decks: [], progress:(old && old.progress) || {}, starred:{},
     best:(old && old.best) || {}, streak:(old && old.streak) || {last:null,days:0}
   };
-  const source = BASE_DECKS.concat((old && old.custom) || []);
+  next.seeded = STARTER_DECKS.map(s => s.seed);
+  const source = STARTER_DECKS.concat((old && old.custom) || []);
   for (const d of source) {
     const extras = ((old && old.extras) || {})[d.id] || [];
     const cards = d.cards.concat(extras).map(withId);
     next.decks.push({
       id: d.id,
-      cat: d.subject === "math" ? "math" : (d.subject || "biology"),
-      name: d.name, note: d.note || "", cards
+      cat: d.cat || (d.subject === "math" ? "math" : "biology"),
+      name: d.name, note: d.note || "", cards,
+      pinned: !!d.pinned || !!d.seed,
+      updated_at: new Date().toISOString()
     });
     // indices -> ids, against the very order v2 would have produced
     const wasStarred = ((old && old.starred) || {})[d.id] || [];
@@ -888,6 +1034,30 @@ function migrate(old){
     if (ids.length) next.starred[d.id] = ids;
   }
   return next;
+}
+
+/**
+ * Add any starter deck this browser has never been offered. Keyed by seed
+ * string, not by "is the deck missing", so deleting or renaming it sticks and
+ * a future edition can be shipped as a new key without clobbering the old one.
+ */
+function seedStarters(){
+  S.seeded = S.seeded || [];
+  let added = 0;
+  for (const s of STARTER_DECKS) {
+    if (S.seeded.includes(s.seed)) continue;
+    S.seeded.push(s.seed);
+    if (S.decks.some(d => d.id === s.id)) continue;   // renamed copy still counts
+    if (!catById(s.cat) && !S.categories.some(c => c.id === s.cat)) {
+      S.categories.unshift({ id: s.cat, name: "Biology", color: "c1", updated_at: nowISO() });
+    }
+    S.decks.unshift({
+      id: s.id, cat: s.cat, name: s.name, note: s.note || "",
+      cards: s.cards.map(withId), pinned: true, updated_at: nowISO(),
+    });
+    added++;
+  }
+  if (added) save();
 }
 
 async function save(){
@@ -938,18 +1108,20 @@ function renderHome(){
   if (orphans.length) sections.push([UNFILED, "Uncategorised", "c8"]);
 
   $("panels").innerHTML = sections.map(([id,label,color]) => {
-    const list = id === UNFILED ? orphans : DECKS.filter(x => x.cat === id);
+    const list = (id === UNFILED ? orphans : DECKS.filter(x => x.cat === id))
+      .slice().sort((p, q) => (q.pinned ? 1 : 0) - (p.pinned ? 1 : 0));
     const cards = list.map(x => {
       const p = S.progress[x.id];
       const pct = p ? Math.round(p.known / p.total * 100) : 0;
       const stars = (S.starred[x.id] || []).length;
       return `<div class="deckrow">
-          <button class="deck" data-deck="${x.id}">
-            <span class="title">${esc(x.name)}</span>
+          <button class="deck${x.pinned ? " pinned" : ""}" data-deck="${x.id}">
+            <span class="title">${x.pinned ? `<span class="pin" title="Course deck">${PIN_SVG}</span>` : ""}${esc(x.name)}</span>
             <span class="meta">
               <span>${x.cards.length} card${x.cards.length===1?"":"s"}</span>
               <span class="prog" style="--p:${pct}%"><i></i></span>
               <span class="pct">${p ? pct + "%" : "new"}</span>
+              ${x.pinned ? `<span class="official">Course deck</span>` : ""}
               ${stars ? `<span class="starred">${stars} starred</span>` : ""}
             </span>
           </button>

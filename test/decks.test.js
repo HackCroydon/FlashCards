@@ -42,6 +42,29 @@ setTimeout(async () => {
        S.decks.length > 0 && S.decks[0].cards.every(c => typeof c[4] === "string" && c[4]));
     ok("default categories exist", S.categories.length >= 2);
 
+
+    /* The course deck ships with the app, so its data has to be sound: a
+       distractor equal to its own answer makes a quiz question unanswerable,
+       and a duplicate question wastes a card. */
+    {
+      const d = S.decks.find(x => x.id === "topic1-macromolecules");
+      ok("the course deck is present", !!d && d.cards.length > 60,
+         d ? d.cards.length + " cards" : "missing");
+      ok("it is pinned as a course deck", !!d && d.pinned === true);
+      ok("every card offers four distractors",
+         d.cards.every(c => Array.isArray(c[3]) && c[3].length === 4));
+      ok("no distractor repeats its own answer",
+         d.cards.every(c => !c[3].some(x => x.trim().toLowerCase() === c[1].trim().toLowerCase())));
+      ok("no distractor is repeated within a card",
+         d.cards.every(c => new Set(c[3].map(x => x.trim().toLowerCase())).size === 4));
+      ok("no question appears twice",
+         new Set(d.cards.map(c => c[0].trim().toLowerCase())).size === d.cards.length);
+      ok("every card has a group tag for quiz distractors",
+         d.cards.every(c => typeof c[2] === "string" && c[2].length > 0));
+      ok("the seed is recorded so it is never re-added",
+         Array.isArray(S.seeded) && S.seeded.length > 0, JSON.stringify(S.seeded));
+    }
+
     // Deleting a card must not repoint a star at its neighbour.
     const d = { id:"dT", cat:S.categories[0].id, name:"T", cards:[
       withId(["Q1","A1","concept",["a","b","c","d"]]),

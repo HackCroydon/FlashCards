@@ -61,6 +61,21 @@ silently memorising wrong facts, which is the worst thing a study app can do.
 So every scan lands on a review screen first — untick anything wrong, tap
 **Edit** to fix a question or answer, then save.
 
+## The course deck
+
+**Topic 1 — Macromolecules** ships with the app: 77 cards covering
+macromolecules and polymers, carbohydrates, lipids, proteins, dehydration
+synthesis and hydrolysis. The answers follow the Topic 1 handout and the notes
+written on it, so they match what was taught rather than a textbook rewording.
+
+It is marked as a course deck with a pin and sorts to the top of its category,
+so it reads as the main thing rather than one deck among many.
+
+Seeding is keyed (`topic1-macromolecules@1`), not conditional on the deck being
+missing. It is offered once and the key is recorded, so editing, renaming or
+deleting it sticks instead of being undone on the next load. Shipping a revised
+edition later means adding a new key.
+
 ## Accounts and sync
 
 Optional. With no Supabase project configured the app behaves exactly as it
