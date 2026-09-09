@@ -61,9 +61,24 @@ silently memorising wrong facts, which is the worst thing a study app can do.
 So every scan lands on a review screen first — untick anything wrong, tap
 **Edit** to fix a question or answer, then save.
 
+## Explanations
+
+Every card carries a short "why": one or two sentences giving the reason,
+mechanism or distinction behind the answer, so the deck teaches rather than
+drills. It appears under the answer on the back of the card and in the quiz
+feedback, whether you got the question right or wrong.
+
+Cards are stored as
+`[question, answer, group, distractors, id, why]`. Scanned cards get one from
+Gemini: `why` is required by the response schema, and the prompt is explicit
+that restating the answer in other words does not count. The server drops any
+explanation that merely repeats the answer or is too short to say anything,
+because a card that appears to explain itself and does not is worse than one
+that does not try.
+
 ## The course deck
 
-**Topic 1 — Macromolecules** ships with the app: 77 cards covering
+**Topic 1 — Macromolecules** ships with the app: 77 cards, each with an explanation, covering
 macromolecules and polymers, carbohydrates, lipids, proteins, dehydration
 synthesis and hydrolysis. The answers follow the Topic 1 handout and the notes
 written on it, so they match what was taught rather than a textbook rewording.

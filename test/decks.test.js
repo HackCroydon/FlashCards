@@ -61,6 +61,18 @@ setTimeout(async () => {
          new Set(d.cards.map(c => c[0].trim().toLowerCase())).size === d.cards.length);
       ok("every card has a group tag for quiz distractors",
          d.cards.every(c => typeof c[2] === "string" && c[2].length > 0));
+
+      /* Explanations. The point of the card is understanding, so an
+         explanation that merely restates the answer is worse than none. */
+      ok("every course card explains itself", d.cards.every(c => !!c[5]),
+         d.cards.filter(c => !c[5]).length + " without one");
+      const flat = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+      ok("no explanation just restates its answer",
+         d.cards.every(c => flat(c[5]) !== flat(c[1])));
+      ok("no explanation is too short to say anything",
+         d.cards.every(c => String(c[5]).length >= 40));
+      ok("adding an explanation did not disturb the ids or distractors",
+         d.cards.every(c => !!c[4] && Array.isArray(c[3]) && c[3].length === 4));
       ok("the seed is recorded so it is never re-added",
          Array.isArray(S.seeded) && S.seeded.length > 0, JSON.stringify(S.seeded));
     }
@@ -171,6 +183,22 @@ setTimeout(async () => {
 
       kill.remove();
       renderHome();
+    }
+
+
+    /* The explanation must survive a share code, or a shared deck teaches
+       nothing, and it must survive withId, which used to truncate to 5 slots. */
+    {
+      const wd = { id:"dW", cat:S.categories[0].id, name:"W", cards:[
+        withId(["Q1","A1","term",["a","b","c","d"],null,"Because of the reason."])]};
+      S.decks.push(wd);
+      ok("withId keeps the explanation", wd.cards[0][5] === "Because of the reason.");
+      ok("withId still assigns an id", !!wd.cards[0][4]);
+      const wc = await makeCode("dW");
+      const wb = await decodeShare(wc);
+      ok("a share code carries the explanation", wb.cards[0][5] === "Because of the reason.",
+         String(wb.cards[0][5]).slice(0, 30));
+      S.decks = S.decks.filter(x => x.id !== "dW");
     }
 
     // Batching: a note set larger than one request must go up in chunks,

@@ -67,6 +67,11 @@ const CARD_SCHEMA = {
             description:
               "A short lowercase tag for the kind of answer: term, concept, list, number, process, formula, sugar, unit. Cards sharing a tag are used as each other's quiz distractors.",
           },
+          why: {
+            type: "STRING",
+            description:
+              "One or two sentences saying WHY the answer is right, so the student understands rather than memorises. Give the reason, mechanism or distinction — do not restate the answer in other words. If the notes explain it, use their explanation.",
+          },
           distractors: {
             type: "ARRAY",
             description:
@@ -74,7 +79,7 @@ const CARD_SCHEMA = {
             items: { type: "STRING" },
           },
         },
-        required: ["question", "answer", "group", "distractors"],
+        required: ["question", "answer", "group", "distractors", "why"],
       },
     },
   },
@@ -92,6 +97,10 @@ Rules:
 - Answers must be what the notes actually say, not what you know from elsewhere. If the notes are wrong, follow the notes.
 - If handwriting is genuinely unreadable, skip that fact rather than guessing at it.
 - Every card needs exactly 4 distractors. They must be plausible-but-wrong, matched in length and style to the real answer, and mutually distinct. A distractor that is obviously silly makes the quiz worthless.
+- Every card needs a "why": one or two sentences explaining why the answer is right, so the student understands it instead of memorising it.
+  - Give the reason, the mechanism, or the distinction that makes the wrong options wrong.
+  - Do NOT restate the answer in different words. "Because enzymes are catalysts" is not an explanation of "what is a catalyst".
+  - Prefer the explanation the notes give. Where the notes only state a fact, explain it with standard subject knowledge, but never contradict the notes.
 - Do not invent facts that are not on the pages.
 
 If the pages contain no study material at all, return an empty cards array.`;
@@ -447,9 +456,15 @@ function normaliseCard(c) {
     })
     .slice(0, 4);
 
-  // Fewer than 4 usable distractors: hand back what we have and let the app's
-  // own pickDistractors() top it up from sibling cards.
-  return distractors.length ? [q, a, group, distractors] : [q, a, group];
+  /* An explanation that just repeats the answer is worse than none: it takes
+     up space on the card and teaches nothing. */
+  let why = String(c.why || "").trim().slice(0, 400);
+  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+  if (why && (norm(why) === norm(a) || norm(why).length < 12)) why = "";
+
+  // Slot 4 is the id, filled in by the client. Fewer than 4 usable distractors:
+  // hand back what we have and let pickDistractors() top it up from siblings.
+  return [q, a, group, distractors.length ? distractors : null, null, why || null];
 }
 
 function safeJson(s) {
