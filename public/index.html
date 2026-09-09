@@ -532,6 +532,68 @@
   @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
   @media (max-width:560px){ .acct .syncmsg,.acct .who{display:none} }
 
+
+  /* ---------------- scan progress ---------------- */
+  .scanning{
+    background:var(--card);border:1px solid var(--edge);border-radius:var(--r);
+    padding:22px;box-shadow:var(--lift);animation:deal .4s var(--ease) both;
+  }
+  .pages{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .pg{
+    position:relative;margin:0;width:62px;border-radius:8px;overflow:hidden;
+    border:1.5px solid var(--edge-soft);background:var(--paper);
+    transition:border-color .3s var(--ease),opacity .3s,transform .3s var(--ease);
+  }
+  .pg img{display:block;width:100%;height:78px;object-fit:cover}
+  .pg .noimg{display:grid;place-items:center;height:78px;color:var(--muted);font-size:18px}
+  .pg figcaption{
+    position:absolute;left:0;bottom:0;right:0;text-align:center;font-size:10px;
+    padding:2px 0;background:color-mix(in srgb,var(--paper) 82%,transparent);color:var(--muted);
+    font-variant-numeric:tabular-nums;
+  }
+  .pg.pending{opacity:.45}
+  .pg.active{border-color:var(--c4);opacity:1;transform:translateY(-2px)}
+  .pg.active::after{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--c4) 34%,transparent) 50%,transparent 70%);
+    background-size:260% 100%;animation:sweep 1.25s linear infinite;
+  }
+  @keyframes sweep{from{background-position:180% 0}to{background-position:-80% 0}}
+  .pg.done{border-color:var(--c1);opacity:1}
+  .pg.done::after{
+    content:"✓";position:absolute;top:3px;right:4px;font-size:11px;font-weight:700;
+    color:var(--c1);text-shadow:0 1px 2px var(--paper);
+  }
+  .pg.failed{border-color:var(--wrong);opacity:1}
+  .pg.failed::after{
+    content:"!";position:absolute;top:2px;right:5px;font-size:12px;font-weight:700;
+    color:var(--wrong);text-shadow:0 1px 2px var(--paper);
+  }
+
+  .scanbar{height:3px;border-radius:3px;background:var(--edge-soft);overflow:hidden;margin-bottom:16px}
+  .scanbar i{display:block;height:100%;background:var(--c1);border-radius:3px;
+    transition:width .5s var(--ease)}
+
+  .scanhead{display:flex;align-items:center;gap:12px;font-size:13.5px}
+  .scanhead b{display:block;font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .scanhead span span{display:block;color:var(--muted);font-size:12.5px;margin-top:3px}
+  .scanhead .waited{
+    margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12.5px;
+    padding:3px 9px;border:1px solid var(--edge-soft);border-radius:20px;white-space:nowrap;
+    transition:color .4s,border-color .4s;
+  }
+  .scanhead .waited.slow{color:var(--c4);border-color:var(--c4)}
+  .orbit.small{width:22px;height:22px;margin:0;flex:none;position:relative}
+  .orbit.small i{position:absolute;inset:0;border-radius:50%;border:2px solid transparent;
+    border-top-color:var(--c4);animation:spin 1s linear infinite}
+  .orbit.small i:nth-child(2){inset:5px;border-top-color:var(--c2);animation-duration:1.5s;animation-direction:reverse}
+
+  .retrying{
+    margin:14px 0 0;padding:11px 13px;font-size:12.5px;line-height:1.5;
+    background:var(--raise);border-left:2.5px solid var(--c4);border-radius:0 8px 8px 0;color:var(--ink-2);
+  }
+  .scanning .row{margin-top:16px}
+
   @media (max-width:480px){
     .brand h1{font-size:24px}
     .card p{font-size:21px}
@@ -1238,15 +1300,6 @@ function showScreen(id){
   window.scrollTo(0, 0);
 }
 
-function working(title, note){
-  showScreen("review");
-  $("reviewTitle").textContent = "Scanning";
-  $("reviewBody").innerHTML = `<div class="done working">
-      <div class="orbit"><i></i><i></i></div>
-      <h3>${esc(title)}</h3><p>${esc(note)}</p>
-    </div>`;
-}
-
 /* Everything the scan learned about itself, for the error screen and console.
    Rebuilt per scan so it never shows stale numbers from a previous attempt. */
 let diag = {};
@@ -1302,27 +1355,188 @@ function scanError(msg){
 const PAGES_PER_BATCH = 4;
 const MAX_PAGES = 24;
 
-/** Send one batch. Resolves {ok, cards, deckName, subject, truncated} or {ok:false, error, status}. */
+/* ---------------- scan progress ----------------
+   A scan can take a minute across several batches, so it has to show what it
+   is doing: which pages, how long it has been waiting, and — when something
+   goes wrong — that it is trying again rather than silently stalling. */
+
+const SCAN_TIMEOUT_MS = Number(localStorage.getItem("scanTimeoutMs")) || 90_000;
+const SCAN_RETRIES = 2;            // attempts after the first, per batch
+const RETRY_BACKOFF_MS = [3000, 8000];
+
+/** Small thumbnails so you can see which pages you actually picked. */
+function thumbnail(file, max = 132){
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const s = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(img.width * s));
+      cv.height = Math.max(1, Math.round(img.height * s));
+      const cx = cv.getContext("2d");
+      cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+      cx.drawImage(img, 0, 0, cv.width, cv.height);
+      resolve(cv.toDataURL("image/jpeg", 0.6));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
+/* Live state for the working screen, so updates don't rebuild the whole DOM
+   and restart the CSS animations underneath. */
+const scanUI = {
+  thumbs: [],          // { src, name, state: pending|active|done|failed }
+  started: 0,
+  tick: null,
+  title: "",
+  note: "",
+  retry: "",
+
+  open(thumbs){
+    this.thumbs = thumbs;
+    this.started = Date.now();
+    this.title = "Reading your notes…";
+    this.note = "";
+    this.retry = "";
+    showScreen("review");
+    $("reviewTitle").textContent = "Scanning";
+    $("reviewBody").innerHTML = `
+      <div class="scanning">
+        <div class="pages" id="scanPages">${thumbs.map((t,i) => `
+          <figure class="pg pending" data-pg="${i}">
+            ${t.src ? `<img src="${t.src}" alt="">` : `<span class="noimg">?</span>`}
+            <figcaption>${i+1}</figcaption>
+          </figure>`).join("")}</div>
+
+        <div class="scanbar"><i id="scanFill" style="width:0%"></i></div>
+
+        <div class="scanhead">
+          <span class="orbit small"><i></i><i></i></span>
+          <span>
+            <b id="scanTitle">Reading your notes…</b>
+            <span id="scanNote"></span>
+          </span>
+          <span class="waited" id="scanWaited">0s</span>
+        </div>
+
+        <p class="retrying hide" id="scanRetry"></p>
+        <div class="row"><button class="act ghost" id="scanCancel">Cancel</button></div>
+      </div>`;
+
+    $("scanCancel").onclick = () => { scanUI.cancelled = true; scanUI.close(); renderHome(); };
+    this.cancelled = false;
+    clearInterval(this.tick);
+    this.tick = setInterval(() => {
+      const el = $("scanWaited");
+      if (!el) return clearInterval(this.tick);
+      const s = Math.round((Date.now() - this.started) / 1000);
+      el.textContent = s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+      // once it is running long, say so rather than looking stuck
+      el.classList.toggle("slow", s > 25);
+    }, 250);
+  },
+
+  set(title, note){
+    this.title = title; this.note = note || "";
+    if ($("scanTitle")) $("scanTitle").textContent = title;
+    if ($("scanNote")) $("scanNote").textContent = this.note;
+  },
+
+  /** Mark a range of pages, and move the bar. */
+  mark(from, to, state){
+    for (let i = from; i <= to; i++) {
+      const el = document.querySelector(`[data-pg="${i}"]`);
+      if (el) el.className = "pg " + state;
+    }
+    const done = document.querySelectorAll(".pg.done").length;
+    if ($("scanFill")) $("scanFill").style.width = `${Math.round(done / this.thumbs.length * 100)}%`;
+  },
+
+  sayRetry(text){
+    this.retry = text;
+    const el = $("scanRetry");
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle("hide", !text);
+  },
+
+  close(){ clearInterval(this.tick); this.tick = null; },
+};
+
+/** A countdown the user can watch, rather than a dead pause. */
+async function waitVisibly(ms, label){
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    if (scanUI.cancelled) return;
+    const left = Math.ceil((until - Date.now()) / 1000);
+    scanUI.sayRetry(`${label} Retrying in ${left}s…`);
+    await new Promise(r => setTimeout(r, 250));
+  }
+  scanUI.sayRetry("");
+}
+
+/**
+ * Send one batch, with a hard timeout so a hung request cannot stall the whole
+ * scan forever. Returns {ok, cards, ...} or {ok:false, error, retryable}.
+ */
 async function sendBatch(images){
   const payload = JSON.stringify({ images });
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), SCAN_TIMEOUT_MS);
   let res, raw = "", data = null;
   try {
     const headers = { "Content-Type": "application/json" };
     const token = cloud.user ? await cloud.accessToken() : null;
     if (token) headers.Authorization = `Bearer ${token}`;
-    res = await fetch(`${API_BASE}/api/extract`, { method: "POST", headers, body: payload });
+    res = await fetch(`${API_BASE}/api/extract`,
+      { method: "POST", headers, body: payload, signal: ctl.signal });
     raw = await res.text();
     try { data = JSON.parse(raw); } catch {}
   } catch (e) {
-    return { ok:false, error:"Couldn't reach the scanning service. If you're running this locally, make sure \"npm run dev\" is still running in your terminal." };
+    if (e?.name === "AbortError") {
+      return { ok:false, timedOut:true, retryable:true,
+        error:`That took longer than ${Math.round(SCAN_TIMEOUT_MS/1000)} seconds, so it was stopped.` };
+    }
+    return { ok:false, retryable:true,
+      error:"Couldn't reach the scanning service. If you're running this locally, make sure \"npm run dev\" is still running in your terminal." };
+  } finally {
+    clearTimeout(timer);
   }
+
   if (res.status === 404) {
-    return { ok:false, status:404, error:"The scanning service isn't running at this address. If this is GitHub Pages, set VERCEL_API in index.html to your Vercel URL." };
+    return { ok:false, status:404, retryable:false,
+      error:"The scanning service isn't running at this address. If this is GitHub Pages, set VERCEL_API in index.html to your Vercel URL." };
   }
   if (!res.ok || !data || !Array.isArray(data.cards)) {
-    return { ok:false, status:res.status, error:(data && data.error) || `The server returned an error (HTTP ${res.status}).` };
+    return { ok:false, status:res.status,
+      // the server says whether another go is worth it; retrying something
+      // that will fail again only burns the daily Gemini quota
+      retryable: data ? !!data.retryable : res.status >= 500,
+      error:(data && data.error) || `The server returned an error (HTTP ${res.status}).` };
   }
   return { ok:true, ...data };
+}
+
+/** One batch, with retries. Reports each attempt so nothing looks stalled. */
+async function sendBatchWithRetry(images, { from, to, label }){
+  for (let attempt = 0; attempt <= SCAN_RETRIES; attempt++) {
+    if (scanUI.cancelled) return { ok:false, cancelled:true, error:"Cancelled." };
+    if (attempt > 0) scanUI.set(label, `Attempt ${attempt + 1} of ${SCAN_RETRIES + 1}`);
+
+    const out = await sendBatch(images);
+    if (out.ok) return out;
+    if (!out.retryable || attempt === SCAN_RETRIES) return out;
+
+    scanUI.mark(from, to, "failed");
+    await waitVisibly(RETRY_BACKOFF_MS[attempt] || 8000,
+      out.timedOut ? "That attempt timed out." : `That attempt failed: ${out.error}`);
+    if (scanUI.cancelled) return { ok:false, cancelled:true, error:"Cancelled." };
+    scanUI.mark(from, to, "active");
+  }
+  return { ok:false, error:"Gave up after several attempts.", retryable:false };
 }
 
 async function runScan(files){
@@ -1350,19 +1564,24 @@ async function runScan(files){
   for (let i = 0; i < pics.length; i += PAGES_PER_BATCH) batches.push(pics.slice(i, i + PAGES_PER_BATCH));
   dbg("batches", `${pics.length} page(s) in ${batches.length} batch(es) of up to ${PAGES_PER_BATCH}`);
 
+  /* Show the pages first, so you can see what you actually picked before
+     waiting on anything. */
+  const thumbs = await Promise.all(pics.map(async f => ({ src: await thumbnail(f), name: f.name })));
+  scanUI.open(thumbs);
+
   const all = [];
   const seen = new Set();
   let deckName = null, subject = null, truncated = false, failure = null;
 
   for (let b = 0; b < batches.length; b++) {
+    if (scanUI.cancelled) { failure = "Cancelled."; break; }
     const from = b * PAGES_PER_BATCH + 1;
     const to = from + batches[b].length - 1;
-    working(
-      batches.length === 1 ? "Reading your notes…" : `Reading pages ${from}–${to}…`,
-      batches.length === 1
-        ? `${pics.length} page${pics.length===1?"":"s"}, usually 10–30 seconds`
-        : `Batch ${b+1} of ${batches.length}. ${all.length} card${all.length===1?"":"s"} so far.`
-    );
+    const label = batches.length === 1 ? "Reading your notes…" : `Reading pages ${from}–${to}…`;
+    scanUI.mark(from - 1, to - 1, "active");
+    scanUI.set(label, batches.length === 1
+      ? `${pics.length} page${pics.length===1?"":"s"}`
+      : `Batch ${b+1} of ${batches.length}${all.length ? ` · ${all.length} cards so far` : ""}`);
 
     /* Shrink until this batch fits the request budget. */
     const budget = 3 * 1024 * 1024;
@@ -1376,17 +1595,18 @@ async function runScan(files){
       }
     } catch (e) {
       dbg("downscaleError", e.message);
-      failure = e.message; break;
+      failure = e.message; scanUI.mark(from - 1, to - 1, "failed"); break;
     }
     if (images.reduce((n,d) => n + d.length * 0.75, 0) >= budget) {
       failure = `Pages ${from}–${to} are too large to send together. Try photographing them at a lower resolution.`;
       break;
     }
 
-    const out = await sendBatch(images);
+    const out = await sendBatchWithRetry(images, { from: from - 1, to: to - 1, label });
     dbg(`batch${b+1}`, out.ok ? `${out.cards.length} cards via ${out.model || "?"}` : `failed: ${out.error}`);
 
-    if (!out.ok) { failure = out.error; break; }
+    if (!out.ok) { failure = out.error; scanUI.mark(from - 1, to - 1, "failed"); break; }
+    scanUI.mark(from - 1, to - 1, "done");
 
     deckName = deckName || out.deckName;
     subject = subject || out.subject;
@@ -1400,6 +1620,7 @@ async function runScan(files){
     }
   }
 
+  scanUI.close();
   dbg("total", `${all.length} cards from ${batches.length} batch(es) in ${((Date.now()-t0)/1000).toFixed(1)}s`);
 
   /* A later batch failing shouldn't throw away the earlier ones. */

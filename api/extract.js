@@ -96,8 +96,8 @@ Rules:
 
 If the pages contain no study material at all, return an empty cards array.`;
 
-function bad(res, code, error) {
-  res.status(code).json({ error });
+function bad(res, code, error, retryable = false) {
+  res.status(code).json({ error, retryable });
   return null;
 }
 
@@ -253,7 +253,7 @@ export default async function handler(req, res) {
     req.socket?.remoteAddress ||
     "unknown";
   if (rateLimited(ip)) {
-    return bad(res, 429, "That's a lot of scans at once — give it a minute and try again.");
+    return bad(res, 429, "That's a lot of scans at once — give it a minute and try again.", true);
   }
 
   const body = typeof req.body === "string" ? safeJson(req.body) : req.body;
@@ -363,7 +363,7 @@ export default async function handler(req, res) {
       const wait = /retry in ([\d.]+)s/i.exec(detail);
       return bad(res, 429, wait
         ? `Gemini is rate limiting us. Try again in about ${Math.ceil(+wait[1])} seconds.`
-        : "Gemini is rate limiting us right now. Give it a minute and try again.");
+        : "Gemini is rate limiting us right now. Give it a minute and try again.", true);
     }
     if (r.status === 400 || r.status === 403) {
       const detail = await r.text().catch(() => "");
@@ -376,7 +376,7 @@ export default async function handler(req, res) {
     }
 
     const json = await r.json().catch(() => null);
-    if (!json) return bad(res, 502, "Gemini sent back something unreadable.");
+    if (!json) return bad(res, 502, "Gemini sent back something unreadable.", true);
 
     const cand = json.candidates?.[0];
     const finish = cand?.finishReason;
@@ -389,13 +389,13 @@ export default async function handler(req, res) {
       if (finish === "MAX_TOKENS") {
         return bad(res, 502, "Those notes were too dense to finish. Try scanning fewer pages at once.");
       }
-      return bad(res, 502, "Gemini returned an empty result. Try again.");
+      return bad(res, 502, "Gemini returned an empty result. Try again.", true);
     }
 
     const out = safeJson(text);
     if (!out || !Array.isArray(out.cards)) {
       console.error("Unparseable model output:", text.slice(0, 500));
-      return bad(res, 502, "Gemini's answer wasn't in the expected format. Try again.");
+      return bad(res, 502, "Gemini's answer wasn't in the expected format. Try again.", true);
     }
 
     const cards = out.cards.map(normaliseCard).filter(Boolean);
@@ -422,9 +422,9 @@ export default async function handler(req, res) {
   // If anything in the chain was swamped, say so. The last model's 404 is the
   // least relevant error we saw and the least actionable thing to show.
   if (overloaded) {
-    return bad(res, 503, "Gemini is busy right now. Give it a minute and scan again.");
+    return bad(res, 503, "Gemini is busy right now. Give it a minute and scan again.", true);
   }
-  return bad(res, 502, lastErr);
+  return bad(res, 502, lastErr, true);
 }
 
 /** Model output -> the [q, a, group, distractors] tuple the app already studies. */

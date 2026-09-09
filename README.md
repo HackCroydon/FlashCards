@@ -140,6 +140,23 @@ appeared in an earlier batch are dropped. If a batch fails partway through, the
 cards already gathered are kept and the review screen says the set is partial:
 losing 15 good pages because page 16 failed would be the worst outcome.
 
+### While it is scanning
+
+The scan screen shows a thumbnail of every page you picked, so you can see what
+you actually selected before waiting on anything. Pages light up as their batch
+goes out, tick when it comes back, and outline red if it fails. A progress bar
+tracks pages finished, and a counter shows how long it has been waiting, turning
+amber past 25 seconds so a slow scan does not read as a stuck one.
+
+Each request has a 90 second timeout (override with `localStorage.scanTimeoutMs`),
+because a hung request would otherwise stall the whole set indefinitely.
+
+A failed batch is retried twice with backoff, and the screen says what failed
+and counts down to the next attempt rather than sitting silent. Only transient
+failures are retried: the server marks each error `retryable`, so a used-up
+daily quota or a bad request fails immediately instead of burning three
+requests to fail three times.
+
 Each batch is one Gemini request, so a 24-page scan costs 6 of the free tier's
 roughly 20 daily requests.
 

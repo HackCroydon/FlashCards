@@ -132,6 +132,33 @@ setTimeout(async () => {
       ok("a failed batch keeps the earlier ones", draft && draft.cards.length === 2,
          "kept " + (draft ? draft.cards.length : 0));
       ok("a partial scan says so", !!draft.partial);
+
+      // Retry: a transient failure should be tried again, a permanent one
+      // must not be (retrying burns the daily Gemini quota for nothing).
+      calls = 0; failAt = 0;
+      let plan = [];
+      window.fetch = async (u, o) => {
+        if (!String(u).includes("/api/extract")) return realFetch(u, o);
+        const p = plan[calls++] || "ok";
+        if (p === "soft") return { ok:false, status:503,
+          text: async () => JSON.stringify({ error:"busy", retryable:true }) };
+        if (p === "hard") return { ok:false, status:429,
+          text: async () => JSON.stringify({ error:"quota gone", retryable:false }) };
+        return { ok:true, status:200, text: async () => JSON.stringify({
+          deckName:"S", subject:"biology", cards:[["q"+calls,"A","term",["a","b","c","d"]]] }) };
+      };
+      calls = 0; plan = ["soft"];
+      await runScan(pages(4));
+      ok("a transient failure is retried and then succeeds",
+         calls === 2 && draft && draft.cards.length === 1, "calls=" + calls);
+
+      calls = 0; plan = ["hard"];
+      await runScan(pages(4));
+      ok("a permanent failure is not retried", calls === 1, "calls=" + calls);
+
+      calls = 0; plan = ["soft","soft","soft","soft"];
+      await runScan(pages(4));
+      ok("retries stop at the cap", calls === 3, "calls=" + calls);
       window.fetch = realFetch;
     }
   } catch (e) {
