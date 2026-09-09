@@ -99,6 +99,57 @@ setTimeout(async () => {
     ok("hostile text renders literally",
        document.querySelector("#reviewBody .rcard .q").textContent.startsWith("<img"));
 
+
+    /* The card flip. This broke silently once: the entrance animation used
+       animation-fill-mode:both on a transform keyframe, and an animation
+       outranks a normal declaration, so .flipped never applied for as long as
+       .in was on the element - which is the whole time you are looking at a
+       card. Transitions are switched off here so the end state can be read
+       immediately rather than mid-animation. */
+    {
+      const kill = document.createElement("style");
+      kill.textContent = "*,*::before,*::after{transition:none !important}";
+      document.head.appendChild(kill);
+
+      openDeck(S.decks[0].id);
+      await new Promise(r => setTimeout(r, 120));
+      const card = document.getElementById("card");
+
+      ok("an unflipped card has no transform",
+         getComputedStyle(card).transform === "none",
+         getComputedStyle(card).transform);
+
+      card.click();
+      const t = getComputedStyle(card).transform;
+      const m = t.startsWith("matrix3d") ? t.slice(9, -1).split(",").map(Number) : null;
+      ok("clicking the card actually turns it over",
+         !!m && Math.round(m[0]) === -1 && Math.round(m[10]) === -1, t);
+
+      card.click();
+      ok("clicking again turns it back", getComputedStyle(card).transform === "none");
+
+      // the entrance must never own transform, or it will beat the flip again
+      const before = getComputedStyle(card).animationName;
+      ok("the entrance animation is still present", before.includes("deal"), before);
+      card.classList.add("flipped");
+      const both = getComputedStyle(card).transform;
+      ok("the entrance cannot override the flip",
+         both.startsWith("matrix3d") && Math.round(both.slice(9,-1).split(",").map(Number)[0]) === -1,
+         both);
+      card.classList.remove("flipped");
+
+      // advance() adds these; the CSS must define them or the swipe is dead
+      for (const cls of ["exit-left", "exit-right"]) {
+        card.classList.add(cls);
+        const name = getComputedStyle(card).animationName;
+        ok(cls + " maps to a real animation", name !== "none" && name !== "deal", name);
+        card.classList.remove(cls);
+      }
+
+      kill.remove();
+      renderHome();
+    }
+
     // Batching: a note set larger than one request must go up in chunks,
     // dedupe repeated headings across pages, and keep what succeeded when a
     // later batch fails rather than throwing the whole scan away.

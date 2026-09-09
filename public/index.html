@@ -267,9 +267,14 @@
   }
   .card.flipped{transform:rotateY(180deg)}
   .card.in{animation:deal .5s var(--ease) both}
-  @keyframes deal{from{opacity:0;transform:translateY(14px) rotate(-1.2deg)}to{opacity:1;transform:none}}
-  .card.out-l{animation:tossL .34s var(--ease) forwards}
-  .card.out-r{animation:tossR .34s var(--ease) forwards}
+  /* translate/rotate are independent of transform and compose with it, so the
+     entrance cannot overwrite .flipped the way a transform keyframe did. */
+  @keyframes deal{
+    from{opacity:0;translate:0 14px;rotate:-1.2deg}
+    to{opacity:1;translate:0 0;rotate:0deg}
+  }
+  .card.exit-left{animation:tossL .34s var(--ease) forwards}
+  .card.exit-right{animation:tossR .34s var(--ease) forwards}
   @keyframes tossL{to{opacity:0;transform:translateX(-46%) rotate(-9deg)}}
   @keyframes tossR{to{opacity:0;transform:translateX(46%) rotate(9deg)}}
 
@@ -1019,7 +1024,7 @@ function showCard(){
   card.classList.add("in");
   $("q").textContent = front;
   $("a").textContent = back;
-  $("frontLabel").textContent = reverse ? "Answer" : (deck.subject === "math" ? "Math" : "Biology");
+  $("frontLabel").textContent = reverse ? "Answer" : catName(deck.cat);
   $("backLabel").textContent = reverse ? "Which question?" : "Answer";
   $("count").textContent = `Card ${pos+1} of ${queue.length}`;
   $("tag").textContent = missed.length ? `${missed.length} to review` : "shuffled";
@@ -1221,6 +1226,13 @@ function addCardModal(){
 
 /* ---------------- events ---------------- */
 $("card").onclick = () => $("card").classList.toggle("flipped");
+
+/* The entrance animation must not outlive itself. While .in is present its
+   fill-mode pins transform to the final keyframe, which silently beats
+   .flipped and the card never turns over. */
+$("card").addEventListener("animationend", e => {
+  if (e.animationName === "deal") $("card").classList.remove("in");
+});
 $("card").addEventListener("animationend", e => {
   if (e.animationName === "pop") $("card").classList.remove("in");
 });
