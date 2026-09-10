@@ -2671,11 +2671,21 @@ const cloud = {
     const { data } = await this.client.auth.getSession();
     this.user = data?.session?.user || null;
     this.status = this.user ? "syncing" : "signedout";
+    /* Coming back from Google, the session is not ready when getSession() is
+       first called — supabase-js is still reading it out of the URL. So the
+       account bar has to be redrawn whenever the session actually arrives, not
+       only when someone signs out, or it keeps saying "Sign in to sync" while
+       the person is already signed in. */
     this.client.auth.onAuthStateChange((_e, session) => {
       const was = this.user?.id;
       this.user = session?.user || null;
-      if (this.user && this.user.id !== was) syncNow({ firstLogin: true });
-      if (!this.user) { this.status = "signedout"; renderAccountBar(); }
+      if (this.user && this.user.id !== was) {
+        this.status = "syncing";
+        syncNow({ firstLogin: true });
+      } else if (!this.user) {
+        this.status = "signedout";
+      }
+      renderAccountBar();
     });
   },
 
