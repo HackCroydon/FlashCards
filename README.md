@@ -127,7 +127,12 @@ server environment variable.
 
 ### What keeps one person's decks private
 
-Row Level Security, and nothing else. Every table carries
+Row Level Security, and nothing else. This is verified rather than assumed:
+`npm run test:rls` signs in as two real accounts against a live project and
+checks that one cannot read, write, modify or delete the other's rows, that an
+anonymous caller holding only the key from the page gets nothing back, and that
+a user cannot reset their own scan counter. It creates and deletes throwaway
+accounts, so it needs the service role key and is opt-in. Every table carries
 `auth.uid() = user_id` on both `using` (reads) and `with check` (writes).
 Both halves are needed: without `with check` someone could write rows owned by
 another user; without `using` they could read them.

@@ -75,13 +75,15 @@ setTimeout(async () => {
     ok("an unstamped local row does not clobber a stamped remote one",
        r.merged[0].name === "stamped");
 
-    // --- signed out, nothing tries to sync
-    ok("accounts are off when unconfigured", cloud.configured() === false);
-    ok("no user means no sync", cloud.user === null);
-    let synced = false;
-    const realQueue = queueSync;
+    /* Signed out, the app must behave exactly as it did before accounts
+       existed. Whether a Supabase project is configured is beside the point:
+       what matters is that nobody signed in means nothing syncs. */
+    ok("nobody is signed in at boot", cloud.user === null);
+    ok("status reflects that", ["signedout", "off"].includes(cloud.status), cloud.status);
     await syncNow();                       // must be a no-op, not a crash
-    ok("syncNow is safe with no account", true);
+    ok("syncNow is safe with no account", cloud.user === null);
+    queueSync();                           // must not schedule anything either
+    ok("queueSync is safe with no account", true);
 
     // --- mutations still work with no account
     const before = S.decks.length;

@@ -12,6 +12,7 @@
     "test:decks": "node test/decks.test.js",
     "test:live": "node test/extract.test.js --live",
     "test:palette": "node test/palette.test.js",
-    "test:sync": "node test/sync.test.js"
+    "test:sync": "node test/sync.test.js",
+    "test:rls": "node test/rls.test.js"
   }
 }
