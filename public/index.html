@@ -1034,6 +1034,123 @@ const STARTER_DECKS = [
         null, "It is photosynthesis run backwards: glucose and oxygen in, carbon dioxide and water out, with the energy released from the broken bonds."],
     ],
   },
+  {
+    seed: "topic2-enzymes@1",
+    id: "topic2-enzymes",
+    cat: "biology",
+    name: "Topic 2 — Enzymes",
+    note: "What changes enzyme activity, how inhibitors work, and the digestive enzymes",
+    cards: [
+      /* ---------- temperature ---------- */
+      ["What is an enzyme's optimal temperature?", "The temperature at which it functions most effectively.", "term",
+        ["The highest temperature it can survive without denaturing.", "The temperature at which it stops working entirely.", "The temperature of the substrate when it binds.", "The temperature at which the reaction needs no enzyme."],
+        null, "Every enzyme has one, and it reflects where the organism lives. Human enzymes peak around body temperature."],
+      ["Why does increasing temperature generally increase reaction rate?", "Molecules gain kinetic energy and collide more frequently.", "concept",
+        ["The enzyme changes shape to fit more substrates at once.", "The substrate breaks apart on its own without the enzyme.", "More enzyme is produced by the cell as it warms.", "The active site becomes permanently larger."],
+        null, "Reactions need the enzyme and substrate to meet. More movement means more collisions, so more chances to bind."],
+      ["What happens to the reaction rate if temperature keeps rising past the optimum?", "It starts to decrease, because high temperatures denature the enzyme.", "concept",
+        ["It keeps rising, because collisions keep increasing.", "It stays level, because the enzyme is saturated.", "It drops briefly and then recovers.", "It doubles for every ten degrees indefinitely."],
+        null, "Two effects compete. Below the optimum more collisions win; above it, damage to the enzyme wins and the rate collapses."],
+      ["What happens to an enzyme when it denatures?", "It loses its shape, so the substrate can no longer bind to the active site.", "process",
+        ["It splits into individual amino acids.", "It becomes permanently faster at catalysing.", "It changes into a different enzyme.", "It bonds to the substrate and stays attached."],
+        null, "The amino acids are all still there. What is lost is the folded shape, and shape is what makes an enzyme work."],
+      ["Why does denaturation stop an enzyme working?", "The active site loses its shape, so the substrate no longer fits it.", "concept",
+        ["The enzyme runs out of energy to catalyse with.", "The substrate is destroyed along with the enzyme.", "The enzyme becomes too small to reach the substrate.", "The reaction has already gone to completion."],
+        null, "Enzymes work by fitting their substrate precisely, so any change to that shape breaks the fit."],
+      ["Is denaturation by heat reversible?", "No. The enzyme has lost the shape that made it work.", "concept",
+        ["Yes, cooling it down restores the original shape.", "Yes, adding more substrate reverses it.", "Only if the pH is corrected at the same time.", "Only for enzymes that work above 40 degrees."],
+        null, "This is why cooking an egg cannot be undone: the proteins have unfolded and will not fold back."],
+
+      /* ---------- pH ---------- */
+      ["What is an enzyme's optimal pH?", "The pH at which it functions most effectively.", "term",
+        ["The pH at which the substrate dissolves fastest.", "A neutral pH of 7 for every enzyme.", "The pH at which the enzyme is produced.", "The pH at which the enzyme denatures."],
+        null, "It varies by where the enzyme works: pepsin is suited to the acidic stomach, amylase to near-neutral saliva."],
+      ["How do changes in pH affect an enzyme?", "They disrupt the interactions that maintain its three-dimensional shape.", "concept",
+        ["They change the substrate into a different molecule.", "They increase the number of active sites available.", "They speed up every enzyme equally.", "They add energy that the enzyme stores for later."],
+        null, "The folded shape is held by interactions between amino acids, and changing pH interferes with those."],
+      ["What do extreme changes in pH do to an enzyme?", "They cause it to denature, changing the shape of its active site and reducing or eliminating its function.", "process",
+        ["They make the enzyme work faster than its optimum.", "They convert the enzyme into its own substrate.", "They have no effect as long as temperature is correct.", "They cause the enzyme to bind two substrates at once."],
+        null, "It is the same end result as overheating, reached by a different route: the shape goes, so the function goes."],
+
+      /* ---------- substrate concentration ---------- */
+      ["What happens to the reaction rate as substrate concentration increases?", "It increases, until all available active sites are occupied, then it levels off.", "concept",
+        ["It increases without limit as more substrate is added.", "It decreases, because the substrate blocks the enzyme.", "It stays constant regardless of substrate.", "It rises then falls as the enzyme denatures."],
+        null, "More substrate means active sites are busier, but only until there is no free site left to fill."],
+      ["Why does the reaction rate level off at high substrate concentration?", "Every available enzyme active site is already occupied.", "concept",
+        ["The substrate has all been used up.", "The enzyme has denatured at that concentration.", "The product starts competing for the active site.", "The temperature has risen past the optimum."],
+        null, "The enzyme, not the substrate, has become the limiting factor. Adding more substrate cannot help until a site frees up."],
+      ["What would raise the rate further once it has levelled off?", "Adding more enzyme, since active sites are the limiting factor.", "concept",
+        ["Adding still more substrate.", "Lowering the temperature.", "Adding a competitive inhibitor.", "Nothing can raise it once it levels off."],
+        null, "The plateau is caused by a shortage of active sites, so only more sites can lift it."],
+
+      /* ---------- the normal reaction ---------- */
+      ["What are the steps of a normal enzyme reaction?", "The substrate binds to the active site, the reaction occurs, and product molecules are generated.", "process",
+        ["The enzyme is consumed and the product is released.", "The substrate denatures the enzyme, releasing energy.", "The product binds first and the substrate is released.", "The enzyme splits in two to form the products."],
+        null, "The enzyme is unchanged at the end, which is why one enzyme molecule can process substrate after substrate."],
+
+      /* ---------- competitive inhibition ---------- */
+      ["What is a competitive inhibitor?", "A molecule that binds to the active site of an enzyme.", "term",
+        ["A molecule that binds to a regulatory site away from the active site.", "A molecule that raises the enzyme's optimal temperature.", "A molecule that permanently destroys the enzyme.", "A second enzyme that catalyses the reverse reaction."],
+        null, "It works by occupying the very place the substrate needs, which is what makes it competitive."],
+      ["How does a competitive inhibitor reduce the reaction rate?", "It competes with the substrate, preventing substrate molecules from binding to the active site.", "process",
+        ["It changes the shape of the whole enzyme.", "It lowers the temperature around the enzyme.", "It removes the product as fast as it is made.", "It breaks the peptide bonds holding the enzyme together."],
+        null, "Substrate and inhibitor are rivals for one site, so whichever is more plentiful tends to win."],
+      ["Where does a competitive inhibitor bind?", "The active site.", "term",
+        ["The allosteric site.", "The regulatory site.", "Anywhere on the enzyme surface.", "To the substrate rather than the enzyme."],
+        null, "This is the single fact that separates it from allosteric inhibition, which binds somewhere else entirely."],
+
+      /* ---------- allosteric inhibition ---------- */
+      ["What is an allosteric inhibitor?", "An inhibitor that binds to a regulatory site rather than to the active site.", "term",
+        ["An inhibitor that binds directly to the active site.", "An inhibitor that only works at extreme pH.", "An inhibitor that is destroyed as it acts.", "An inhibitor that speeds the reaction up instead."],
+        null, "Because it does not use the active site, adding more substrate cannot out-compete it."],
+      ["What is the allosteric site?", "A regulatory site on the enzyme, separate from the active site.", "term",
+        ["Another name for the active site.", "The place where the product is released.", "The site where the enzyme was assembled.", "The part of the substrate that binds the enzyme."],
+        null, "Having a second site is what lets a cell switch an enzyme down without blocking the active site directly."],
+      ["What does an allosteric inhibitor do to the enzyme?", "It changes the shape or activity of the enzyme, reducing its ability to catalyse the reaction.", "process",
+        ["It occupies the active site so the substrate cannot enter.", "It raises the enzyme's optimal pH.", "It splits the enzyme into two halves.", "It converts the enzyme into a product molecule."],
+        null, "Changing the shape elsewhere reshapes the active site indirectly, which is why the substrate stops fitting."],
+      ["What is an altered active site?", "The reshaped active site after an allosteric inhibitor binds, which the substrate no longer fits.", "concept",
+        ["An active site that has grown larger to fit more substrate.", "A second active site created by the inhibitor.", "The active site of a denatured enzyme only.", "The site where the inhibitor itself is broken down."],
+        null, "It shows the mechanism: the inhibitor never touches the active site, but it still puts it out of action."],
+      ["How are competitive and allosteric inhibition similar?", "Both reduce the rate of the enzyme-catalysed reaction.", "concept",
+        ["Both bind to the active site of the enzyme.", "Both permanently denature the enzyme.", "Both can be reversed by adding more substrate.", "Both increase the enzyme's optimal temperature."],
+        null, "They reach the same outcome, a slower reaction, which is why it is where they differ that matters in an exam."],
+      ["How are competitive and allosteric inhibition different?", "Competitive inhibitors bind the active site and compete with the substrate; allosteric inhibitors bind a separate regulatory site and change the enzyme's shape.", "concept",
+        ["Competitive inhibition is permanent and allosteric is temporary.", "Competitive inhibitors act on the substrate, allosteric ones on the product.", "Only allosteric inhibition slows the reaction.", "Competitive inhibitors work only at high temperature."],
+        null, "Different binding sites give different behaviour: extra substrate can out-compete a competitive inhibitor but not an allosteric one."],
+
+      /* ---------- feedback inhibition ---------- */
+      ["What is feedback inhibition?", "When the final product of a metabolic pathway acts as an allosteric inhibitor of an earlier enzyme, slowing the pathway.", "concept",
+        ["When the substrate inhibits the enzyme that produces it.", "When an enzyme denatures and stops its own pathway.", "When two enzymes compete for the same substrate.", "When the product speeds up the pathway that made it."],
+        null, "The pathway regulates itself: the more product there is, the harder it becomes to make more."],
+      ["Why is feedback inhibition useful to a cell?", "It stops the cell making more product than it needs.", "concept",
+        ["It makes every reaction run as fast as possible.", "It permanently switches off the pathway after one use.", "It converts excess product back into substrate.", "It raises the optimal temperature of the pathway."],
+        null, "Making something the cell does not need wastes both raw materials and energy."],
+      ["Which enzyme does the final product inhibit in feedback inhibition?", "An earlier enzyme in the same metabolic pathway.", "concept",
+        ["The very last enzyme in the pathway.", "An enzyme in an unrelated pathway.", "Every enzyme in the cell equally.", "The enzyme that breaks the product back down."],
+        null, "Acting early stops the whole run of reactions, rather than letting intermediates pile up part-way through."],
+
+      /* ---------- digestive enzymes ---------- */
+      ["What do most enzyme names end in?", "The suffix -ase.", "term",
+        ["The suffix -ose.", "The suffix -ide.", "The suffix -in.", "The suffix -yl."],
+        null, "It is a naming convention: -ose usually marks a sugar, -ase marks the enzyme that acts on something."],
+      ["What do carbohydrases digest?", "Carbohydrates.", "term",
+        ["Proteins.", "Lipids.", "Nucleic acids.", "Vitamins."],
+        null, "The name says it: carbohydr- for the substrate, -ase for enzyme."],
+      ["What do proteases digest?", "Proteins.", "term",
+        ["Carbohydrates.", "Lipids.", "Starch.", "Sugars."],
+        null, "They break the peptide bonds between amino acids, which is hydrolysis of a protein."],
+      ["What do lipases digest?", "Lipids.", "term",
+        ["Proteins.", "Carbohydrates.", "Cellulose.", "Amino acids."],
+        null, "They split a triglyceride back into glycerol and fatty acids."],
+      ["Using the naming rule, what would an enzyme called maltase act on?", "Maltose.", "concept",
+        ["Malt sugar's product, glucose.", "Any disaccharide at all.", "Proteins found in grain.", "Lipids stored in seeds."],
+        null, "Drop the -ase and you usually have the substrate, which makes most enzyme names self-explanatory."],
+      ["Name three factors that affect enzyme action.", "Temperature, pH and substrate concentration.", "list",
+        ["Colour, mass and volume.", "Pressure, light and gravity.", "Age of the cell, its size and its shape.", "The number of products, reactants and catalysts."],
+        null, "The first two work by affecting the enzyme's shape; the third by affecting how often enzyme and substrate meet."],
+    ],
+  },
 ];
 
 /* ---------------- state ----------------
@@ -1148,7 +1265,9 @@ function seedStarters(){
     if (!catById(s.cat) && !S.categories.some(c => c.id === s.cat)) {
       S.categories.unshift({ id: s.cat, name: "Biology", color: "c1", updated_at: nowISO() });
     }
-    S.decks.unshift({
+    /* push, not unshift: with more than one starter, unshift reversed their
+       declared order. renderHome sorts pinned decks to the top anyway. */
+    S.decks.push({
       id: s.id, cat: s.cat, name: s.name, note: s.note || "",
       cards: s.cards.map(withId), pinned: true, updated_at: nowISO(),
     });

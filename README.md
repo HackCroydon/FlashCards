@@ -76,15 +76,19 @@ explanation that merely repeats the answer or is too short to say anything,
 because a card that appears to explain itself and does not is worse than one
 that does not try.
 
-## The course deck
+## The course decks
 
-**Topic 1 — Macromolecules** ships with the app: 77 cards, each with an explanation, covering
-macromolecules and polymers, carbohydrates, lipids, proteins, dehydration
-synthesis and hydrolysis. The answers follow the Topic 1 handout and the notes
-written on it, so they match what was taught rather than a textbook rewording.
+Two decks ship with the app, both pinned to the top of Biology and marked as
+course decks. Every card carries an explanation, and the answers follow the
+handouts and the notes written on them rather than a textbook rewording.
 
-It is marked as a course deck with a pin and sorts to the top of its category,
-so it reads as the main thing rather than one deck among many.
+**Topic 1 — Macromolecules**, 77 cards: macromolecules and polymers,
+carbohydrates through to polysaccharides, lipids, proteins, dehydration
+synthesis and hydrolysis.
+
+**Topic 2 — Enzymes**, 31 cards: the factors that change enzyme activity
+(temperature, pH, substrate concentration), denaturation, competitive and
+allosteric inhibition, feedback inhibition, and the digestive enzymes.
 
 Seeding is keyed (`topic1-macromolecules@1`), not conditional on the deck being
 missing. It is offered once and the key is recorded, so editing, renaming or

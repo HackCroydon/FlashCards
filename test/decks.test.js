@@ -46,35 +46,36 @@ setTimeout(async () => {
     /* The course deck ships with the app, so its data has to be sound: a
        distractor equal to its own answer makes a quiz question unanswerable,
        and a duplicate question wastes a card. */
-    {
-      const d = S.decks.find(x => x.id === "topic1-macromolecules");
-      ok("the course deck is present", !!d && d.cards.length > 60,
+    for (const starter of STARTER_DECKS) {
+      const d = S.decks.find(x => x.id === starter.id);
+      const label = starter.id;
+      ok(label + ": present", !!d && d.cards.length > 25,
          d ? d.cards.length + " cards" : "missing");
-      ok("it is pinned as a course deck", !!d && d.pinned === true);
-      ok("every card offers four distractors",
+      ok(label + ": pinned as a course deck", !!d && d.pinned === true);
+      ok(label + ": every card offers four distractors",
          d.cards.every(c => Array.isArray(c[3]) && c[3].length === 4));
-      ok("no distractor repeats its own answer",
+      ok(label + ": no distractor repeats its own answer",
          d.cards.every(c => !c[3].some(x => x.trim().toLowerCase() === c[1].trim().toLowerCase())));
-      ok("no distractor is repeated within a card",
+      ok(label + ": no distractor is repeated within a card",
          d.cards.every(c => new Set(c[3].map(x => x.trim().toLowerCase())).size === 4));
-      ok("no question appears twice",
+      ok(label + ": no question appears twice",
          new Set(d.cards.map(c => c[0].trim().toLowerCase())).size === d.cards.length);
-      ok("every card has a group tag for quiz distractors",
+      ok(label + ": every card has a group tag",
          d.cards.every(c => typeof c[2] === "string" && c[2].length > 0));
 
       /* Explanations. The point of the card is understanding, so an
          explanation that merely restates the answer is worse than none. */
-      ok("every course card explains itself", d.cards.every(c => !!c[5]),
+      ok(label + ": every card explains itself", d.cards.every(c => !!c[5]),
          d.cards.filter(c => !c[5]).length + " without one");
       const flat = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
-      ok("no explanation just restates its answer",
+      ok(label + ": no explanation restates its answer",
          d.cards.every(c => flat(c[5]) !== flat(c[1])));
-      ok("no explanation is too short to say anything",
+      ok(label + ": no explanation is too short",
          d.cards.every(c => String(c[5]).length >= 40));
-      ok("adding an explanation did not disturb the ids or distractors",
+      ok(label + ": ids and distractors intact",
          d.cards.every(c => !!c[4] && Array.isArray(c[3]) && c[3].length === 4));
-      ok("the seed is recorded so it is never re-added",
-         Array.isArray(S.seeded) && S.seeded.length > 0, JSON.stringify(S.seeded));
+      ok(label + ": seed recorded so it is never re-added",
+         Array.isArray(S.seeded) && S.seeded.includes(starter.seed));
     }
 
 
