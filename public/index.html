@@ -2748,6 +2748,43 @@ const cloud = {
   },
 };
 
+/**
+ * Read an OAuth failure out of the URL. Supabase puts it in the hash, and
+ * sometimes the query too, so both are checked and the URL is then cleaned up
+ * so a refresh does not show the error again.
+ */
+function takeOAuthError(){
+  const fromQuery = new URLSearchParams(location.search);
+  const fromHash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const code = fromQuery.get("error_code") || fromHash.get("error_code");
+  const kind = fromQuery.get("error") || fromHash.get("error");
+  if (!code && !kind) return null;
+
+  let detail = fromQuery.get("error_description") || fromHash.get("error_description") || "";
+  try { detail = decodeURIComponent(detail.replace(/\+/g, " ")); } catch {}
+
+  history.replaceState(null, "", location.pathname);
+
+  /* Google authenticated the person and handed back a code; Supabase then
+     failed to trade that code for a token. That is a configuration problem
+     between the two, not something the person signing in can fix by retrying. */
+  if (/exchange external code/i.test(detail)) {
+    return {
+      title: "Google sign-in isn't set up correctly",
+      body: "Google signed you in, but the site couldn't complete it. The Client Secret in Supabase most likely doesn't match the Client ID. Use email and password for now.",
+      detail,
+    };
+  }
+  if (/access_denied/i.test(kind || "") || /denied/i.test(detail)) {
+    return { title: "Sign-in cancelled", body: "You didn't finish signing in with Google. Nothing has changed.", detail };
+  }
+  return {
+    title: "Google sign-in didn't work",
+    body: "Something went wrong on the way back from Google. Use email and password for now.",
+    detail,
+  };
+}
+
 /** Supabase error text is for developers. Say what to actually do. */
 function authMessage(error){
   const m = String(error?.message || "").toLowerCase();
@@ -2761,8 +2798,20 @@ function authMessage(error){
     return "Check your email and click the confirmation link first.";
   if (m.includes("password") && m.includes("6"))
     return "Passwords need to be at least 6 characters.";
-  if (m.includes("rate limit") || m.includes("too many"))
-    return "Too many attempts. Wait a minute and try again.";
+  /* Two different limits get conflated here. Supabase caps how many
+     confirmation emails its built-in mail service will send per hour, which is
+     nothing to do with how many times someone has tried to sign in. Telling
+     them "too many attempts" when they have made one is both wrong and
+     unfixable from their side. */
+  if (m.includes("email rate limit") || m.includes("over_email_send_rate_limit") ||
+      (m.includes("rate limit") && m.includes("email"))) {
+    return "The site has hit its hourly limit for confirmation emails, which is a limit on this site, not on you. " +
+           "Wait an hour, or sign in with Google instead.";
+  }
+  const wait = /after (\d+) seconds?/i.exec(m);
+  if (wait) return `Please wait ${wait[1]} seconds before trying that again.`;
+  if (m.includes("rate limit") || m.includes("too many requests"))
+    return "That was too quick after the last attempt. Give it a minute and try again.";
   if (m.includes("invalid email") || m.includes("unable to validate"))
     return "That doesn't look like an email address.";
   if (m.includes("failed to fetch") || m.includes("network"))
@@ -2962,6 +3011,29 @@ function accountModal(){
 }
 
 /* ---------------- sign in / sign up ---------------- */
+/** A dead end that is not the person's fault, explained without jargon. */
+function showAuthProblem({ title, body, detail }){
+  showScreen("review");
+  $("reviewTitle").textContent = "Account";
+  $("reviewBody").innerHTML = `
+    <div class="rhead auth">
+      <h3>${esc(title)}</h3>
+      <p class="sub">${esc(body)}</p>
+      <div class="row">
+        <button class="act" id="apHome">Back to decks</button>
+        <button class="act primary" id="apEmail">Use email instead</button>
+      </div>
+      <div class="stack"><button class="linkbtn" id="apWhy">What went wrong</button></div>
+      <pre class="diag hide" id="apDetail">${esc(detail || "No detail was returned.")}</pre>
+    </div>`;
+  $("apHome").onclick = () => renderHome();
+  $("apEmail").onclick = () => authScreen("in");
+  $("apWhy").onclick = () => {
+    const open = !$("apDetail").classList.toggle("hide");
+    $("apWhy").textContent = open ? "Hide details" : "What went wrong";
+  };
+}
+
 function authScreen(mode = "in"){
   showScreen("review");
   $("reviewTitle").textContent = "Account";
@@ -3074,11 +3146,13 @@ addEventListener("offline", () => { cloud.status = "offline"; renderAccountBar()
 addEventListener("focus",   () => { if (cloud.user && cloud.status !== "syncing") queueSync(); });
 
 (async () => {
+  const oauthError = takeOAuthError();
   await load();
   renderHome();
   await cloud.init();
   renderAccountBar();
-  if (cloud.user) syncNow({ firstLogin: true });
+  if (oauthError) showAuthProblem(oauthError);
+  else if (cloud.user) syncNow({ firstLogin: true });
 })();
 
 /* ------------------------------------------------------------------
