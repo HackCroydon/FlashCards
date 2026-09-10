@@ -625,6 +625,16 @@
     margin:6px 0 0;font-size:12.5px;line-height:1.5;color:var(--muted);
     padding-left:9px;border-left:2px solid var(--edge-soft);
   }
+  /* --- sign in --- */
+  .rhead.auth h3{font-size:22px;margin-bottom:4px}
+  button.act.google{
+    display:flex;align-items:center;justify-content:center;gap:10px;width:100%;flex:none;
+    margin:4px 0 0;background:var(--card);border-color:var(--edge);color:var(--ink);font-weight:600;
+  }
+  button.act.google:hover{background:var(--raise);border-color:var(--muted)}
+  button.act.google svg{flex:none}
+  .or{display:flex;align-items:center;gap:12px;margin:16px 0 14px;color:var(--muted);font-size:12px}
+  .or::before,.or::after{content:"";flex:1;height:1px;background:var(--edge-soft)}
   @media (max-width:480px){
     .brand h1{font-size:24px}
     .card p{font-size:21px}
@@ -2675,6 +2685,25 @@ const cloud = {
     // With email confirmation on there is no session until they click the link.
     return { needsConfirmation: !data.session };
   },
+  /** Hand off to Google. The page is replaced, and we come back with a session. */
+  async signInWithGoogle(){
+    const { error } = await this.client.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: location.origin + location.pathname },
+    });
+    if (error) throw new Error(authMessage(error));
+  },
+
+  /** Which providers this project actually has switched on. */
+  async providers(){
+    try {
+      const r = await fetch(SUPABASE_URL + "/auth/v1/settings", { headers: { apikey: SUPABASE_ANON_KEY } });
+      if (!r.ok) return {};
+      const s = await r.json();
+      return s.external || {};
+    } catch { return {}; }
+  },
+
   async signIn(email, password){
     const { error } = await this.client.auth.signInWithPassword({ email, password });
     if (error) throw new Error(authMessage(error));
@@ -2724,7 +2753,10 @@ function authMessage(error){
   const m = String(error?.message || "").toLowerCase();
   if (m.includes("already registered") || m.includes("already been registered"))
     return "That email already has an account. Try signing in instead.";
-  if (m.includes("invalid login")) return "That email and password don't match.";
+  if (m.includes("invalid login"))
+    return "No account matched that email and password. If you haven't created an account yet, use Create an account below.";
+  if (m.includes("provider is not enabled") || m.includes("unsupported provider"))
+    return "Google sign-in isn't switched on for this site yet. Use email and password for now.";
   if (m.includes("email not confirmed"))
     return "Check your email and click the confirmation link first.";
   if (m.includes("password") && m.includes("6"))
@@ -2934,14 +2966,31 @@ function authScreen(mode = "in"){
   showScreen("review");
   $("reviewTitle").textContent = "Account";
   const titles = { in:"Sign in", up:"Create an account", reset:"Reset your password" };
+  const blurbs = {
+    in: "Your decks follow you between your phone and your computer.",
+    up: "One account, and your decks are on every device you sign in on.",
+    reset: "We'll email you a link to set a new password.",
+  };
   $("reviewBody").innerHTML = `
-    <div class="rhead">
+    <div class="rhead auth">
       <h3>${titles[mode]}</h3>
-      <p class="sub">${mode === "reset"
-        ? "We'll email you a link to set a new password."
-        : "Sync your decks across your phone and computer. You can keep using Study Deck without an account."}</p>
+      <p class="sub">${blurbs[mode]}</p>
+
+      ${mode === "reset" ? "" : `
+        <button class="act google hide" id="auGoogle">
+          <svg viewBox="0 0 18 18" width="17" height="17" aria-hidden="true">
+            <path fill="#4285F4" d="M17.6 9.2c0-.6-.05-1.2-.15-1.8H9v3.4h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5Z"/>
+            <path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18Z"/>
+            <path fill="#FBBC05" d="M3.9 10.7a5.4 5.4 0 0 1 0-3.4V5H.9a9 9 0 0 0 0 8l3-2.3Z"/>
+            <path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.4 1.3l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.2 6.6 3.6 9 3.6Z"/>
+          </svg>
+          Continue with Google
+        </button>
+        <div class="or hide" id="auOr"><span>or</span></div>`}
+
       <label for="auEmail">Email</label>
-      <input id="auEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+      <input id="auEmail" type="email" autocomplete="email" inputmode="email"
+             autocapitalize="none" spellcheck="false" placeholder="you@gmail.com">
       ${mode === "reset" ? "" : `
         <label for="auPass">Password</label>
         <input id="auPass" type="password" autocomplete="${mode==="up"?"new-password":"current-password"}"
@@ -2952,11 +3001,24 @@ function authScreen(mode = "in"){
         <button class="act primary" id="auGo">${mode==="up"?"Create account":mode==="reset"?"Send link":"Sign in"}</button>
       </div>
       <div class="stack">
-        ${mode!=="up"    ? `<button class="linkbtn" id="auToUp">Create an account instead</button>` : ""}
+        ${mode!=="up"    ? `<button class="linkbtn" id="auToUp">Create an account</button>` : ""}
         ${mode!=="in"    ? `<button class="linkbtn" id="auToIn">I already have an account</button>` : ""}
         ${mode==="in"    ? `<button class="linkbtn" id="auToReset">I forgot my password</button>` : ""}
       </div>
     </div>`;
+
+  /* Only offer Google if the project actually has it switched on — a button
+     that fails on click is worse than no button. */
+  cloud.providers().then(p => {
+    if (!p.google || !$("auGoogle")) return;
+    $("auGoogle").classList.remove("hide");
+    $("auOr").classList.remove("hide");
+    $("auGoogle").onclick = async () => {
+      $("auErr").textContent = "";
+      try { await cloud.signInWithGoogle(); }
+      catch (e) { $("auErr").textContent = e.message; }
+    };
+  });
 
   $("auBack").onclick = () => renderHome();
   $("auToUp")   && ($("auToUp").onclick   = () => authScreen("up"));
