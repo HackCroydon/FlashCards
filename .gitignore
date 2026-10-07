@@ -5,3 +5,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 test/sample-notes.png
+
+# photos of course handouts: source material, not part of the app
+context/

@@ -90,6 +90,69 @@ setTimeout(async () => {
     S.decks.push({id:"local1",cat:S.categories[0].id,name:"Local",cards:[],updated_at:iso(1)});
     await save();
     ok("decks still save locally with no account", S.decks.length === before + 1);
+
+    /* Course decks through a whole sync, with the network stubbed out.
+       Real-looking dates: a pristine course deck is stamped 2000-01-01, so a
+       remote row has to be newer than that, as every real one is. */
+    {
+      const at = s => new Date(Date.UTC(2026, 0, 1) + s * 1000).toISOString();
+      const saved = { user: cloud.user, client: cloud.client, pull: cloud.pull,
+        pushDecks: cloud.pushDecks, pushCategories: cloud.pushCategories, pushState: cloud.pushState };
+      const pushed = { decks: [], state: [] };
+      let remote = { categories: [], decks: [], state: null };
+      cloud.user = { id: "u-test", email: "t@example.com" };
+      cloud.client = {};
+      cloud.pull = async () => JSON.parse(JSON.stringify(remote));
+      cloud.pushDecks = async rows => { pushed.decks.push(...rows); };
+      cloud.pushCategories = async () => {};
+      cloud.pushState = async st => { pushed.state.push(JSON.parse(JSON.stringify(st))); };
+
+      /* The account already has Topic 3, renamed, with a card of its own and
+         one course card removed on another device. This device is fresh. */
+      const s3 = courseOf("topic3-digestion");
+      const removedId = cardId(s3.cards[0]);
+      remote.decks = [{ id: "topic3-digestion", user_id: "u-test", cat: "biology", name: "My digestion deck",
+        note: "", updated_at: at(50),
+        cards: s3.cards.slice(1).concat([["Mine?", "Yes.", "concept", null, "kown1", null]]) }];
+      remote.state = { updated_at: at(60), state: { starred: {}, progress: {}, best: {},
+        streak: { last: null, days: 0 }, courseRemoved: { "topic3-digestion": [removedId] },
+        mocks: [{ at: at(55), score: 30, total: 40, byTopic: {} }] } };
+      S.stateUpdatedAt = null;
+      S.mocks = [{ at: at(54), score: 20, total: 40, byTopic: {} }];
+
+      await syncNow({ firstLogin: true });
+
+      const d3 = S.decks.find(d => d.id === "topic3-digestion");
+      ok("the account's copy of a course deck beats a fresh local seed", !!d3 && d3.name === "My digestion deck",
+         d3 ? d3.name : "missing");
+      ok("the account's own card in a course deck survives", !!d3 && d3.cards.some(c => cardId(c) === "kown1"));
+      ok("a course card removed on another device stays removed",
+         !!d3 && !d3.cards.some(c => cardId(c) === removedId));
+      ok("mock tests from both devices are kept", S.mocks.length === 2, S.mocks.length + " mocks");
+      ok("course decks the account lacked are uploaded",
+         ["topic1-macromolecules","topic2-enzymes","liver","topic4-respiration"]
+           .every(id => pushed.decks.some(r => r.id === id)));
+      renderHome();
+      ok("the course still shows as a syllabus after a sync",
+         document.querySelectorAll(".rail [data-deck]").length === STARTER_DECKS.length);
+
+      /* An account whose Topic 1 was last written by an old version of the
+         page, with random card ids and no explanations. */
+      const s1 = courseOf("topic1-macromolecules");
+      remote = { categories: [], state: null, decks: [{ id: "topic1-macromolecules", user_id: "u-test",
+        cat: "biology", name: s1.name, note: "", updated_at: at(90),
+        cards: s1.cards.map((c, n) => [c[0], c[1], c[2], c[3], "kold" + n, null]) }] };
+      await syncNow();
+      const d1 = S.decks.find(d => d.id === "topic1-macromolecules");
+      ok("an old-format course deck from the account is brought up to date", !!d1 &&
+         d1.cards.every(c => String(cardId(c)).startsWith("t1:")) && d1.cards.every(c => !!c[5]));
+      const last = pushed.state[pushed.state.length - 1];
+      ok("removed course cards and mock results are part of the synced state",
+         !!last && "courseRemoved" in last && "mocks" in last && last.mocks.length === 2);
+
+      Object.assign(cloud, saved);
+      cloud.status = "signedout";
+    }
   } catch (e) {
     console.log("T|FAIL|harness threw|" + e.message);
   }

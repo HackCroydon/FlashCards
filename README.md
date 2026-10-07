@@ -5,8 +5,10 @@ photographing a page of your notes. Gemini reads the page and writes the cards.
 
 - **Flashcards** — flip, swipe, star the ones you keep missing
 - **Quiz mode** — multiple choice with distractors that are actually plausible
-- **Scan your notes** — photograph up to 5 pages, get a reviewable deck back
-- **Progress** — per-deck completion, best quiz score, day streak
+- **Course decks** — the whole biology unit, one deck per topic, in the order taught
+- **Unit Test Prep** — every topic in one deck, with a 40-question mock test marked at the end
+- **Scan your notes** — photograph up to 24 pages, get a reviewable deck back
+- **Progress** — per-deck completion, best quiz score, mock test history, day streak
 
 Everything you make is stored in your own browser. Nothing is uploaded except
 the note images you choose to scan, and those aren't kept after the reply.
@@ -78,28 +80,60 @@ that does not try.
 
 ## The course decks
 
-Two decks ship with the app, both pinned to the top of Biology and marked as
-course decks. Every card carries an explanation, and the answers follow the
-handouts and the notes written on them rather than a textbook rewording.
+Five decks ship with the app, one for each part of the biology unit, in the
+order it is taught. They lead the Biology section as a syllabus: each numbered
+stop has a ring that fills as the topic is learned, and the Liver is a smaller
+stop between Topic 3 and Topic 4. Every card has four hand-written wrong
+answers and an explanation, and the answers follow the class handouts and the
+notes written on them rather than a textbook rewording.
 
-**Topic 1 — Macromolecules**, 77 cards: macromolecules and polymers,
-carbohydrates through to polysaccharides, lipids, proteins, dehydration
-synthesis and hydrolysis.
+| Deck | Cards | Covers |
+|---|---|---|
+| Topic 1 — Macromolecules | 80 | polymers, carbohydrates, lipids, proteins, dehydration synthesis and hydrolysis |
+| Topic 2 — Enzymes | 46 | activation energy and induced fit, temperature, pH, substrate concentration, inhibition, digestive enzymes |
+| Topic 3 — Digestive System | 138 | the four processes, the tract and accessory organs, sphincters, mouth to rectum, how each nutrient is digested and absorbed |
+| The Liver | 27 | bile, the gallbladder and its ducts, emulsifying fats, what the liver does with nutrients |
+| Topic 4 — Respiratory System | 100 | the airways from nose to alveoli, breathing and pressure, hemoglobin, how oxygen and carbon dioxide are carried |
 
-**Topic 2 — Enzymes**, 31 cards: the factors that change enzyme activity
-(temperature, pH, substrate concentration), denaturation, competitive and
-allosteric inhibition, feedback inhibition, and the digestive enzymes.
+Wrong answers are written to be as long and as specific as the right one, so
+the longest option is never a giveaway. The handouts' "Think About It!"
+questions are cards too, answered.
 
-Seeding is keyed (`topic1-macromolecules@1`), not conditional on the deck being
-missing. It is offered once and the key is recorded, so editing, renaming or
-deleting it sticks instead of being undone on the next load.
+### Unit Test Prep
 
-Once-only seeding has a cost: anything added to a starter afterwards never
-reaches people who were seeded earlier. That is what happened with the
-explanations. `upgradeStarters()` closes the gap without undoing anyone: it
-fills in blanks only, matches cards by question text so a reworded card is left
-alone, never overwrites an explanation someone wrote, never re-creates a deck
-that was deleted, and is itself keyed so it runs once.
+Pinned above everything: all five course decks as one, for revising the whole
+unit. It offers flashcards, a quiz over everything, and a mock test of 40
+questions drawn from every topic in proportion to its size, with at least four
+from each, marked only at the end the way a real test is. The result shows the
+mark, a bar per topic, the weakest topic with a button to drill it, and every
+missed question with the right answer and why. Results are kept, so the home
+screen shows the last mark, the best, and how it is trending.
+
+Unit Test Prep is never stored. It is rebuilt from the topic decks each time,
+so a card removed from a topic is gone from here too, and a star set here lands
+on the topic deck the card came from.
+
+### Keeping course decks up to date
+
+A course deck is an ordinary deck: it can be renamed, re-filed, added to, or
+have cards removed. Its course cards, though, come from the code, so a corrected
+answer or a new card reaches everyone. On every load and after every sync,
+`reconcileCourse()` rebuilds each course deck from the current course:
+
+- course cards have a stable id made from their question, so stars follow them
+  across devices and across updates;
+- a course card you removed stays removed (`S.courseRemoved`, synced and merged
+  as a union, so a removal on any device sticks);
+- cards you added yourself are kept, after the course's own;
+- a copy made before cards had stable ids is matched to the course by question,
+  its stars are carried across, and any card from the first edition
+  (`FIRST_EDITION`) missing from it counts as removed rather than new;
+- nothing is re-stamped, so it can never overwrite a real edit during a sync.
+
+Seeding is still keyed (`topic3-digestion@1`) and once-only, so deleting a
+course deck sticks. A freshly seeded deck is stamped 2000-01-01, older than any
+real edit, so on a new device the account's own copy of a course deck, with its
+renames and removed cards, always wins over the pristine one.
 
 ## Accounts and sync
 

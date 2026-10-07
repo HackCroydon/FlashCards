@@ -51,7 +51,9 @@ setTimeout(async () => {
       const label = starter.id;
       ok(label + ": present", !!d && d.cards.length > 25,
          d ? d.cards.length + " cards" : "missing");
-      ok(label + ": pinned as a course deck", !!d && d.pinned === true);
+      ok(label + ": shown as a course deck", isCourse(starter.id));
+      ok(label + ": every course card has a stable id",
+         d.cards.every(c => String(c[4]).startsWith(starter.key + ":")));
       ok(label + ": every card offers four distractors",
          d.cards.every(c => Array.isArray(c[3]) && c[3].length === 4));
       ok(label + ": no distractor repeats its own answer",
@@ -79,37 +81,161 @@ setTimeout(async () => {
     }
 
 
-    /* Upgrading a starter someone already has. Keyed seeding is once-only so
-       that deleting a starter sticks, which means anything added to it later
-       never reaches people seeded earlier. The upgrade closes that gap without
-       undoing anyone. */
+    /* The course as a whole. Unit Test Prep puts every deck together, so a
+       question repeated across two topics would be asked twice. */
     {
-      const before = S.seeded.slice();
-      const target = { id:"topic1-macromolecules" };
-      const d0 = S.decks.find(x => x.id === target.id);
-      const sample = STARTER_DECKS[0];
+      const all = STARTER_DECKS.flatMap(s => s.cards.map(c => qkey(c[0])));
+      ok("no question appears in two course decks", new Set(all).size === all.length,
+         (all.length - new Set(all).size) + " repeated");
+      const now = new Set(STARTER_DECKS.flatMap(s => s.cards.map(cardId)));
+      const first = Object.entries(FIRST_EDITION)
+        .flatMap(([id, list]) => list.split(" ").map(h => courseOf(id).key + ":" + h));
+      ok("every first-edition question is still in the course", first.every(id => now.has(id)),
+         first.filter(id => !now.has(id)).length + " missing");
+      ok("course decks are in the order taught", STARTER_DECKS.map(s => s.id).join() ===
+         "topic1-macromolecules,topic2-enzymes,topic3-digestion,liver,topic4-respiration");
+    }
 
-      // strip explanations and the upgrade key, as an older install would be
-      d0.cards.forEach(c => { c[5] = null; });
-      d0.cards[0][0] = "A question I reworded myself";
-      d0.cards[1][5] = "My own note.";
-      S.seeded = S.seeded.filter(k => !k.endsWith(":why"));
+    /* Someone who installed before Topic 3 existed gets it on their next
+       visit, stamped as old as possible so that if their account already has
+       a copy, with their own changes, that copy wins the sync. */
+    {
+      const keep = { decks: S.decks.slice(), seeded: S.seeded.slice() };
+      S.decks = S.decks.filter(d => d.id !== "topic3-digestion");
+      S.seeded = S.seeded.filter(k => k !== "topic3-digestion@1");
+      seedStarters();
+      const d3 = S.decks.find(d => d.id === "topic3-digestion");
+      ok("a new course deck reaches an existing install", !!d3 && d3.cards.length > 100);
+      ok("a newly seeded course deck never outranks an account's copy", !!d3 && d3.updated_at === COURSE_STAMP,
+         d3 ? d3.updated_at : "missing");
+      seedStarters();
+      ok("a course deck is only ever seeded once",
+         S.decks.filter(d => d.id === "topic3-digestion").length === 1);
+      S.decks = S.decks.filter(d => d.id !== "topic3-digestion");
+      seedStarters();
+      ok("a deleted course deck stays deleted", !S.decks.some(d => d.id === "topic3-digestion"));
+      S.decks = keep.decks; S.seeded = keep.seeded;
+    }
 
-      upgradeStarters();
+    /* Bringing an old copy up to date. Before course cards had stable ids a
+       seeded deck got random ones. Such a copy has to keep its stars, keep
+       what its owner deleted deleted, keep what its owner added, and gain
+       whatever the course has gained since. */
+    {
+      const saved = JSON.stringify({ decks: S.decks, starred: S.starred, removed: S.courseRemoved });
+      const s = courseOf("topic2-enzymes");
+      const firstEd = new Set(FIRST_EDITION["topic2-enzymes"].split(" "));
+      const legacy = s.cards
+        .filter(c => firstEd.has(cardId(c).split(":")[1]))
+        .map(c => [c[0], c[1], c[2], c[3], uid("k"), null]);    // random ids, no explanations
+      const gone = legacy.splice(3, 1)[0];                        // the owner deleted one
+      legacy.push(["My own question", "My own answer", "concept", null, "kmine1", null]);
+      const starredQ = legacy[5][0];
+      const d = S.decks.find(x => x.id === "topic2-enzymes");
+      d.cards = legacy.map(c => c.slice());
+      S.starred["topic2-enzymes"] = [legacy[5][4]];
+      S.courseRemoved["topic2-enzymes"] = [];
 
-      ok("an older install gets its explanations backfilled",
-         d0.cards.filter(c => c[5]).length > 60, d0.cards.filter(c => c[5]).length + " filled");
-      ok("a card the user reworded is left alone", d0.cards[0][5] === null);
-      ok("an explanation the user wrote is not overwritten", d0.cards[1][5] === "My own note.");
-      ok("the upgrade records its own key",
-         S.seeded.some(k => k === sample.seed + ":why"));
+      reconcileCourse();
 
-      // and it must not run a second time
-      d0.cards[2][5] = null;
-      upgradeStarters();
-      ok("the upgrade runs once, not on every load", d0.cards[2][5] === null);
+      ok("an old copy's course cards move to stable ids", d.cards
+        .filter(c => c[0] !== "My own question").every(c => String(cardId(c)).startsWith("t2:")));
+      ok("a star on an old copy follows its card",
+         S.starred["topic2-enzymes"].length === 1 &&
+         S.starred["topic2-enzymes"][0] === cardId(s.cards.find(c => c[0] === starredQ)));
+      ok("a card deleted from an old copy stays deleted",
+         !d.cards.some(c => c[0] === gone[0]) && S.courseRemoved["topic2-enzymes"].length === 1);
+      ok("cards added to the course since then reach the old copy",
+         d.cards.some(c => c[0] === "What is activation energy?"));
+      ok("the owner's own card is kept, after the course's", cardId(d.cards[d.cards.length - 1]) === "kmine1");
+      ok("explanations come back from the course",
+         d.cards.filter(c => c[0] !== "My own question").every(c => !!c[5]));
+      const once = JSON.stringify(d.cards);
+      ok("a second reconcile changes nothing", !reconcileCourse() && JSON.stringify(d.cards) === once);
 
-      S.seeded = before;
+      const victim = d.cards[0];
+      removeCard("topic2-enzymes", cardId(victim));
+      reconcileCourse();
+      ok("a removed course card stays removed", !d.cards.some(c => cardId(c) === cardId(victim)));
+
+      d.cards[1][1] = "an outdated answer";
+      reconcileCourse();
+      ok("a corrected answer reaches an existing copy", d.cards[1][1] !== "an outdated answer");
+
+      d.cards.push(["Retired?", "Yes.", "concept", null, "t2:zzzzzz", null]);
+      reconcileCourse();
+      ok("a retired course card is dropped", !d.cards.some(c => cardId(c) === "t2:zzzzzz"));
+      ok("the owner's card survives every reconcile", d.cards.some(c => cardId(c) === "kmine1"));
+
+      const back = JSON.parse(saved);
+      S.decks = back.decks; S.starred = back.starred; S.courseRemoved = back.removed;
+    }
+
+    /* Unit Test Prep is assembled from the topic decks, never stored, and
+       anything done in it lands on the topic deck the card came from. */
+    {
+      const p = prepDeck();
+      const sum = STARTER_DECKS.reduce((n, s) => n + S.decks.find(d => d.id === s.id).cards.length, 0);
+      ok("Unit Test Prep holds every course card", p.cards.length === sum, p.cards.length + " of " + sum);
+      ok("Unit Test Prep knows each card's topic", p.src.length === p.cards.length && p.src.every(isCourse));
+      ok("Unit Test Prep is never stored as a deck", !S.decks.some(d => d.id === PREP_ID));
+
+      openDeck(PREP_ID, null, "cards");
+      const i = queue[0], owner = deck.src[i], id = cardId(deck.cards[i]);
+      const had = (S.starred[owner] || []).includes(id);
+      toggleStar();
+      ok("a star set in Unit Test Prep lands on the topic deck", (S.starred[owner] || []).includes(id) !== had);
+      toggleStar();
+      ok("cards cannot be added to Unit Test Prep itself", $("btnAddCard").classList.contains("hide"));
+      ok("each card is labelled with its topic", $("frontLabel").textContent === topicName(courseOf(owner)));
+
+      openDeck(PREP_ID, null, "mock");
+      ok("a mock test is 40 questions", queue.length === 40, "got " + queue.length);
+      ok("a mock test never repeats a question", new Set(queue).size === queue.length);
+      const per = STARTER_DECKS.map(s => queue.filter(k => deck.src[k] === s.id).length);
+      ok("a mock test covers every topic", per.every(n => n > 0), per.join(","));
+      ok("even the shortest topic gets four questions", per.every(n => n >= 4), per.join(","));
+      ok("the mock test tab shows in Unit Test Prep", !$("segMock").classList.contains("hide"));
+
+      const before = (S.mocks || []).length;
+      for (let k = 0; k < 40; k++) {
+        const right = deck.cards[queue[k]][1];
+        answerQuiz(k < 20 ? curOpts.indexOf(right) : curOpts.findIndex(o => o !== right));
+        if (k === 0) ok("a mock answer is not marked until the end",
+          !document.querySelector("#opts .right, #opts .wrong") && !!document.querySelector("#opts .picked"));
+        nextQuestion();
+      }
+      await new Promise(r => setTimeout(r, 60));
+      const m = S.mocks[S.mocks.length - 1];
+      ok("finishing a mock test records it", S.mocks.length === before + 1 && m.score === 20 && m.total === 40,
+         m ? m.score + "/" + m.total : "none");
+      ok("the mock's topic totals add up", Object.values(m.byTopic).reduce((n, [, t]) => n + t, 0) === 40);
+      ok("the result has a bar per topic",
+         document.querySelectorAll("#breakdown .brow").length === STARTER_DECKS.length);
+      ok("the result lists every missed question", document.querySelectorAll("#missedList .mrow").length === 20);
+      ok("the weakest topic is offered for practice", !!document.getElementById("btnWeak"));
+      ok("the mark is circled in red pen", !$("finishMark").classList.contains("hide") &&
+         $("finishMark").textContent.trim() === "50%");
+      ok("a mock test hides the swap-direction button", $("btnFlipMode").classList.contains("hide"));
+      openDeck(PREP_ID, null, "cards");
+      ok("flashcards bring the swap-direction button back", !$("btnFlipMode").classList.contains("hide"));
+    }
+
+    /* The home screen: Unit Test Prep pinned on top, the course as a syllabus. */
+    {
+      renderHome();
+      const prep = document.querySelector("#prep .paper");
+      ok("Unit Test Prep is pinned above the decks", !!prep &&
+         !!(document.getElementById("prep").compareDocumentPosition($("panels")) & Node.DOCUMENT_POSITION_FOLLOWING));
+      const order = [...document.querySelectorAll(".rail [data-deck]")].map(b => b.dataset.deck);
+      ok("course decks are listed in the order taught", order.join() === STARTER_DECKS.map(s => s.id).join(),
+         order.join(" "));
+      ok("the Liver is the smaller stop after Topic 3",
+         !!document.querySelector('.deckrow.course.minor [data-deck="liver"]') && order.indexOf("liver") === 3);
+      ok("every topic is on the prep card", document.querySelectorAll("#prep .tl").length === STARTER_DECKS.length);
+      ok("the prep card shows the last mock mark", document.querySelector("#prep .mark b").textContent === "50%");
+      ok("the prep card says what it covers",
+         document.querySelector("#prep .sub").textContent.includes("Topics 1 to 4 and the Liver"));
     }
 
     // Deleting a card must not repoint a star at its neighbour.
@@ -181,7 +307,7 @@ setTimeout(async () => {
       kill.textContent = "*,*::before,*::after{transition:none !important}";
       document.head.appendChild(kill);
 
-      openDeck(S.decks[0].id);
+      openDeck(S.decks[0].id, null, "cards");
       await new Promise(r => setTimeout(r, 120));
       const card = document.getElementById("card");
 
