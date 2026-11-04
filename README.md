@@ -4,7 +4,7 @@ Flashcards and quizzes for biology and math — and you can build a new deck by
 photographing a page of your notes. Gemini reads the page and writes the cards.
 
 - **Flashcards** — flip, swipe, star the ones you keep missing
-- **Quiz mode** — multiple choice with distractors that are actually plausible
+- **Quiz mode** — multiple choice marked at the end, like a real test, with wrong answers that are real terms from the same topic
 - **Course decks** — the whole biology unit, one deck per topic, in the order taught
 - **Unit Test Prep** — every topic in one deck, with a 40-question mock test marked at the end
 - **Scan your notes** — photograph up to 24 pages, get a reviewable deck back
@@ -67,8 +67,17 @@ So every scan lands on a review screen first — untick anything wrong, tap
 
 Every card carries a short "why": one or two sentences giving the reason,
 mechanism or distinction behind the answer, so the deck teaches rather than
-drills. It appears under the answer on the back of the card and in the quiz
-feedback, whether you got the question right or wrong.
+drills. It appears under the answer on the back of the card, and beside every
+question you missed when a quiz or mock test is marked.
+
+## Quizzes are tests
+
+A quiz marks nothing while you take it: you pick an answer, can change your
+mind until you move on, and see neither the right answer nor a running score.
+At the end you get the mark and every question you missed or skipped, with
+what you picked struck through, the right answer highlighted, and why. **Quiz
+the misses** then quizzes just those again. The mock test in Unit Test Prep
+works the same way.
 
 Cards are stored as
 `[question, answer, group, distractors, id, why]`. Scanned cards get one from
@@ -83,21 +92,27 @@ that does not try.
 Five decks ship with the app, one for each part of the biology unit, in the
 order it is taught. They lead the Biology section as a syllabus: each numbered
 stop has a ring that fills as the topic is learned, and the Liver is a smaller
-stop between Topic 3 and Topic 4. Every card has four hand-written wrong
-answers and an explanation, and the answers follow the class handouts and the
-notes written on them rather than a textbook rewording.
+stop between Topic 3 and Topic 4.
+
+Topics 1 to 4 are written from the Bio 20D Human Systems student notebook and
+nothing else, so the answers are the notebook's own: the key terms, what each
+structure does, and the processes, plus its "Think About It!" questions where a
+card can answer them. The Liver comes from the class handout on it, which
+covers the notebook's liver and gallbladder pages, so Topic 3 leaves those to
+it. Every card has four hand-written wrong answers and an explanation.
 
 | Deck | Cards | Covers |
 |---|---|---|
-| Topic 1 — Macromolecules | 80 | polymers, carbohydrates, lipids, proteins, dehydration synthesis and hydrolysis |
-| Topic 2 — Enzymes | 46 | activation energy and induced fit, temperature, pH, substrate concentration, inhibition, digestive enzymes |
-| Topic 3 — Digestive System | 138 | the four processes, the tract and accessory organs, sphincters, mouth to rectum, how each nutrient is digested and absorbed |
+| Topic 1 — Macromolecules | 41 | polymers and monomers, carbohydrates, lipids, proteins, dehydration synthesis and hydrolysis |
+| Topic 2 — Enzymes | 28 | activation energy and induced fit, temperature, pH, substrate concentration, inhibition, digestive enzymes |
+| Topic 3 — Digestive System | 54 | the four processes, the tract and accessory organs, sphincters, mouth to rectum, how each nutrient is digested and absorbed |
 | The Liver | 27 | bile, the gallbladder and its ducts, emulsifying fats, what the liver does with nutrients |
-| Topic 4 — Respiratory System | 100 | the airways from nose to alveoli, breathing and pressure, hemoglobin, how oxygen and carbon dioxide are carried |
+| Topic 4 — Respiratory System | 48 | the airways from nose to alveoli, breathing and pressure, hemoglobin, how gases are carried, lung volumes |
 
-Wrong answers are written to be as long and as specific as the right one, so
-the longest option is never a giveaway. The handouts' "Think About It!"
-questions are cards too, answered.
+The wrong answers are real terms or functions from the same topic, written as
+long and as specific as the right one, so a question cannot be answered by
+spotting the odd one out. Two fact-checks against the notebook made sure each
+wrong answer is wrong by the notebook's own words, not merely unlikely.
 
 ### Unit Test Prep
 
@@ -125,10 +140,16 @@ answer or a new card reaches everyone. On every load and after every sync,
 - a course card you removed stays removed (`S.courseRemoved`, synced and merged
   as a union, so a removal on any device sticks);
 - cards you added yourself are kept, after the course's own;
-- a copy made before cards had stable ids is matched to the course by question,
-  its stars are carried across, and any card from the first edition
-  (`FIRST_EDITION`) missing from it counts as removed rather than new;
+- a copy made before cards had stable ids is matched to the course by question
+  and its stars are carried across; its first-edition cards (`FIRST_EDITION`)
+  that the course has since retired go, and one the course still has but the
+  copy lacks counts as removed rather than new;
+- a star on a card no longer in the deck is dropped, so it is not counted;
 - nothing is re-stamped, so it can never overwrite a real edit during a sync.
+
+A deck rewritten from scratch gets a higher `edition`, and a deck's last run
+and best quiz score are kept per edition (`scoreKey`), so the rings and the
+quiz average never show a score earned on cards that no longer exist.
 
 Seeding is still keyed (`topic3-digestion@1`) and once-only, so deleting a
 course deck sticks. A freshly seeded deck is stamped 2000-01-01, older than any

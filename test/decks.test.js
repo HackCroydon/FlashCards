@@ -87,11 +87,14 @@ setTimeout(async () => {
       const all = STARTER_DECKS.flatMap(s => s.cards.map(c => qkey(c[0])));
       ok("no question appears in two course decks", new Set(all).size === all.length,
          (all.length - new Set(all).size) + " repeated");
-      const now = new Set(STARTER_DECKS.flatMap(s => s.cards.map(cardId)));
-      const first = Object.entries(FIRST_EDITION)
-        .flatMap(([id, list]) => list.split(" ").map(h => courseOf(id).key + ":" + h));
-      ok("every first-edition question is still in the course", first.every(id => now.has(id)),
-         first.filter(id => !now.has(id)).length + " missing");
+      /* the first edition stays on record, or an old copy's retired cards
+         would pass for cards its owner wrote */
+      const firstCount = id => FIRST_EDITION[id].split(" ").filter(Boolean).length;
+      ok("the first edition of Topics 1 and 2 is still on record",
+         firstCount("topic1-macromolecules") === 77 && firstCount("topic2-enzymes") === 31);
+      ok("the rewritten topics are a new edition, the Liver is not",
+         ["topic1-macromolecules", "topic2-enzymes", "topic3-digestion", "topic4-respiration"]
+           .every(id => courseOf(id).edition === 2) && !courseOf("liver").edition);
       ok("course decks are in the order taught", STARTER_DECKS.map(s => s.id).join() ===
          "topic1-macromolecules,topic2-enzymes,topic3-digestion,liver,topic4-respiration");
     }
@@ -105,7 +108,8 @@ setTimeout(async () => {
       S.seeded = S.seeded.filter(k => k !== "topic3-digestion@1");
       seedStarters();
       const d3 = S.decks.find(d => d.id === "topic3-digestion");
-      ok("a new course deck reaches an existing install", !!d3 && d3.cards.length > 100);
+      ok("a new course deck reaches an existing install",
+         !!d3 && d3.cards.length === courseOf("topic3-digestion").cards.length);
       ok("a newly seeded course deck never outranks an account's copy", !!d3 && d3.updated_at === COURSE_STAMP,
          d3 ? d3.updated_at : "missing");
       seedStarters();
@@ -118,35 +122,49 @@ setTimeout(async () => {
     }
 
     /* Bringing an old copy up to date. Before course cards had stable ids a
-       seeded deck got random ones. Such a copy has to keep its stars, keep
-       what its owner deleted deleted, keep what its owner added, and gain
-       whatever the course has gained since. */
+       seeded deck got random ones, and its cards are the first edition, most
+       of which the course has since rewritten. Such a copy has to keep its
+       stars on cards the course still has, keep what its owner deleted
+       deleted, keep what its owner added, lose the retired cards rather than
+       mistake them for the owner's, and gain the rest of the course. */
     {
       const saved = JSON.stringify({ decks: S.decks, starred: S.starred, removed: S.courseRemoved });
-      const s = courseOf("topic2-enzymes");
-      const firstEd = new Set(FIRST_EDITION["topic2-enzymes"].split(" "));
+      const T = "topic1-macromolecules";
+      const s = courseOf(T);
+      const firstEd = new Set(FIRST_EDITION[T].split(" "));
+      const RETIRED = "What is a macromolecule?";                       // first edition, since rewritten
+      const KEPT = "Which three elements make up carbohydrates?";       // first edition, still in the course
+      const DELETED = "Give three examples of monosaccharides.";        // likewise, deleted by the owner
+      ok("the upgrade test uses real first-edition questions",
+         [RETIRED, KEPT, DELETED].every(q => firstEd.has(hash36(qkey(q)))) &&
+         !s.cards.some(c => qkey(c[0]) === qkey(RETIRED)) &&
+         [KEPT, DELETED].every(q => s.cards.some(c => qkey(c[0]) === qkey(q))));
+      // the first-edition cards the course still has, minus the deleted one, plus a retired one
       const legacy = s.cards
-        .filter(c => firstEd.has(cardId(c).split(":")[1]))
-        .map(c => [c[0], c[1], c[2], c[3], uid("k"), null]);    // random ids, no explanations
-      const gone = legacy.splice(3, 1)[0];                        // the owner deleted one
+        .filter(c => firstEd.has(cardId(c).split(":")[1]) && qkey(c[0]) !== qkey(DELETED))
+        .map((c, n) => [c[0], "An old answer.", c[2], c[3], "kold" + n, null]);   // random ids, no explanations
+      legacy.unshift([RETIRED, "An old answer.", "concept", null, "kretired", null]);
       legacy.push(["My own question", "My own answer", "concept", null, "kmine1", null]);
-      const starredQ = legacy[5][0];
-      const d = S.decks.find(x => x.id === "topic2-enzymes");
+      const keptOld = legacy.find(c => qkey(c[0]) === qkey(KEPT))[4];
+      const d = S.decks.find(x => x.id === T);
       d.cards = legacy.map(c => c.slice());
-      S.starred["topic2-enzymes"] = [legacy[5][4]];
-      S.courseRemoved["topic2-enzymes"] = [];
+      S.starred[T] = ["kretired", keptOld];
+      S.courseRemoved[T] = [];
 
       reconcileCourse();
 
+      const idOf = q => cardId(s.cards.find(c => qkey(c[0]) === qkey(q)));
       ok("an old copy's course cards move to stable ids", d.cards
-        .filter(c => c[0] !== "My own question").every(c => String(cardId(c)).startsWith("t2:")));
-      ok("a star on an old copy follows its card",
-         S.starred["topic2-enzymes"].length === 1 &&
-         S.starred["topic2-enzymes"][0] === cardId(s.cards.find(c => c[0] === starredQ)));
+        .filter(c => c[0] !== "My own question").every(c => String(cardId(c)).startsWith("t1:")));
+      ok("a star on an old copy follows its card, and one on a retired card goes",
+         S.starred[T].join() === idOf(KEPT), S.starred[T].join());
+      ok("a retired first-edition card is dropped, not kept as the owner's",
+         !d.cards.some(c => qkey(c[0]) === qkey(RETIRED)) && !d.cards.some(c => cardId(c) === "kretired"));
       ok("a card deleted from an old copy stays deleted",
-         !d.cards.some(c => c[0] === gone[0]) && S.courseRemoved["topic2-enzymes"].length === 1);
-      ok("cards added to the course since then reach the old copy",
-         d.cards.some(c => c[0] === "What is activation energy?"));
+         !d.cards.some(c => qkey(c[0]) === qkey(DELETED)) && S.courseRemoved[T].join() === idOf(DELETED),
+         S.courseRemoved[T].join());
+      ok("the rest of the course reaches the old copy",
+         d.cards.length === s.cards.length - 1 + 1, d.cards.length + " cards");
       ok("the owner's own card is kept, after the course's", cardId(d.cards[d.cards.length - 1]) === "kmine1");
       ok("explanations come back from the course",
          d.cards.filter(c => c[0] !== "My own question").every(c => !!c[5]));
@@ -154,7 +172,7 @@ setTimeout(async () => {
       ok("a second reconcile changes nothing", !reconcileCourse() && JSON.stringify(d.cards) === once);
 
       const victim = d.cards[0];
-      removeCard("topic2-enzymes", cardId(victim));
+      removeCard(T, cardId(victim));
       reconcileCourse();
       ok("a removed course card stays removed", !d.cards.some(c => cardId(c) === cardId(victim)));
 
@@ -162,9 +180,12 @@ setTimeout(async () => {
       reconcileCourse();
       ok("a corrected answer reaches an existing copy", d.cards[1][1] !== "an outdated answer");
 
-      d.cards.push(["Retired?", "Yes.", "concept", null, "t2:zzzzzz", null]);
+      d.cards.push(["Retired?", "Yes.", "concept", null, "t1:zzzzzz", null]);
+      S.starred[T].push("t1:zzzzzz");
       reconcileCourse();
-      ok("a retired course card is dropped", !d.cards.some(c => cardId(c) === "t2:zzzzzz"));
+      ok("a retired course card is dropped", !d.cards.some(c => cardId(c) === "t1:zzzzzz"));
+      ok("a star on a card no longer in the deck is dropped, so it is not counted",
+         !S.starred[T].includes("t1:zzzzzz"));
       ok("the owner's card survives every reconcile", d.cards.some(c => cardId(c) === "kmine1"));
 
       const back = JSON.parse(saved);
@@ -236,6 +257,79 @@ setTimeout(async () => {
       ok("the prep card shows the last mock mark", document.querySelector("#prep .mark b").textContent === "50%");
       ok("the prep card says what it covers",
          document.querySelector("#prep .sub").textContent.includes("Topics 1 to 4 and the Liver"));
+    }
+
+    /* A quiz is a test, like the mock: nothing is marked and no answer is
+       shown until the end. Then every miss is listed with what was picked,
+       the right answer and why. */
+    {
+      reverse = false;
+      openDeck("topic2-enzymes", null, "quiz");
+      const n = queue.length, first = deck.cards[queue[0]][1];
+      const wrongAt = () => curOpts.findIndex(o => o !== curCorrect);
+      answerQuiz(wrongAt());
+      const outside = $("quizWrap").textContent.replace($("opts").textContent, "");
+      ok("a quiz answer is not marked right or wrong",
+         !document.querySelector("#opts .right, #opts .wrong") && document.querySelectorAll("#opts .picked").length === 1);
+      ok("a quiz shows neither the right answer nor a score before the end",
+         !outside.includes(first) && !/correct/i.test(outside) && $("tag").textContent === "1 answered",
+         $("tag").textContent);
+      const other = curOpts.findIndex((o, k) => k !== wrongAt());
+      answerQuiz(other);
+      ok("a quiz answer can be changed before moving on",
+         document.querySelectorAll("#opts .picked").length === 1 && picks[0].pick === curOpts[other] &&
+         document.querySelector("#opts .picked").getAttribute("aria-pressed") === "true");
+      answerQuiz(curOpts.indexOf(curCorrect));
+      nextQuestion();
+      const good = 15;                                 // question 1 right, then 14 more, one skipped, the rest wrong
+      for (let k = 1; k < n; k++) {
+        if (k === 20) { nextQuestion(); continue; }    // skipped
+        answerQuiz(k < good ? curOpts.indexOf(curCorrect) : wrongAt());
+        if (k === n - 1) ok("the last question's button says it finishes the quiz", $("btnNextQ").textContent === "Finish the quiz");
+        nextQuestion();
+      }
+      await new Promise(r => setTimeout(r, 60));
+      const rows = document.querySelectorAll("#missedList .mrow");
+      ok("the quiz is marked at the end", $("score").textContent === Math.round(good / n * 100) + "%",
+         $("score").textContent);
+      ok("every miss is listed, the skipped one too", rows.length === n - good &&
+         document.querySelectorAll("#missedList .you.skipped").length === 1, rows.length + " rows");
+      ok("each miss shows the pick and the right answer, highlighted, and why",
+         [...rows].every(r => r.querySelector("s.you") && r.querySelector("em.ans mark") && r.querySelector(".whyline")));
+      ok("the misses can be quizzed again", quizMissed.length === n - good &&
+         $("btnMissed").textContent === "Quiz the misses" && !$("btnMissed").classList.contains("hide"));
+      ok("the run is saved against the deck's current edition",
+         S.progress[scoreKey("topic2-enzymes")].known === good && lastRun("topic2-enzymes") === Math.round(good / n * 100));
+
+      /* the other way round, the right answer is the question */
+      reverse = true;
+      openDeck("topic2-enzymes", null, "quiz");
+      ok("a reversed quiz asks with the answer", $("qq").textContent === deck.cards[queue[0]][1]);
+      answerQuiz(curOpts.indexOf(curCorrect));
+      $("btnFlipMode").click();                        // swap mid-question: the pick no longer applies
+      ok("swapping direction mid-question asks it again, unanswered",
+         picks[0].pick === null && picks[0].correct === deck.cards[queue[0]][1] && $("tag").textContent === "0 answered");
+      for (let k = 0; k < queue.length; k++) { answerQuiz(curOpts.indexOf(curCorrect)); nextQuestion(); }
+      await new Promise(r => setTimeout(r, 60));
+      ok("a quiz is marked against the answers as they were asked", $("score").textContent === "100%",
+         $("score").textContent);
+      reverse = false;
+    }
+
+    /* Scores from a deck's first edition must not be shown against its new
+       cards, while every other deck keeps its own. */
+    {
+      const keep = JSON.stringify({ progress: S.progress, best: S.best });
+      S.progress["topic1-macromolecules"] = { known: 80, total: 80 };
+      delete S.progress[scoreKey("topic1-macromolecules")];
+      ok("a rewritten deck starts fresh", lastRun("topic1-macromolecules") === null);
+      ok("a deck that was not rewritten keeps its scores where they were", scoreKey("liver") === "liver" &&
+         scoreKey("dT") === "dT");
+      S.best = { "topic1-macromolecules": 100, [scoreKey("topic2-enzymes")]: 40 };
+      renderHome();
+      ok("the quiz average leaves out scores from old cards", $("stats").textContent.includes("40%") &&
+         !$("stats").textContent.includes("70%"), $("stats").textContent);
+      const back = JSON.parse(keep); S.progress = back.progress; S.best = back.best;
     }
 
     // Deleting a card must not repoint a star at its neighbour.
